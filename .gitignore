@@ -1,0 +1,5 @@
+pycache/
+*.pyc
+common_qr_code.png
+*.csv
+*.xlsx
