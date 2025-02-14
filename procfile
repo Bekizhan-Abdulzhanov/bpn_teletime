@@ -1,1 +1,1 @@
-web: gunicorn BPN_MANAGETIME.wsgi:application
+web: python bot.py

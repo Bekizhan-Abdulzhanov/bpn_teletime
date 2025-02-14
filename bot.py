@@ -10,6 +10,9 @@ import time
 import pytz
 import qrcode
 from config import TOKEN
+from waitress import serve
+from flask import Flask
+
 
 os.environ['TZ'] = 'Asia/Bishkek'
 
@@ -17,6 +20,11 @@ kyrgyzstan_tz = pytz.timezone('Asia/Bishkek')
 now = datetime.now(kyrgyzstan_tz)
 
 bot = telebot.TeleBot(TOKEN)
+
+app=Flask(__name__)
+@app.route('/')
+def index():
+    return "Bot is running."
 
 # Генерация общего QR-кода для всех сотрудников
 common_qr_url = "https://t.me/BPN_KG_managetime_bot?start=checkin"
@@ -453,7 +461,10 @@ schedule_auto_records()
 scheduler.start()
 
 # Запуск бота
+
+
 if __name__ == '__main__':
+    serve(app, host='0.0.0.0', port=5000)
     print("Бот запущен")
     bot.infinity_polling()
 
