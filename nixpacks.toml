@@ -1,2 +1,0 @@
-[phases.setup]
-packages = ["python39", "postgresql_16", "gcc"]
