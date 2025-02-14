@@ -3,3 +3,4 @@ pycache/
 common_qr_code.png
 *.csv
 *.xlsx
+config.py

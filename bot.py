@@ -9,13 +9,14 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import time
 import pytz
 import qrcode
+from config import TOKEN
 
 os.environ['TZ'] = 'Asia/Bishkek'
 
 kyrgyzstan_tz = pytz.timezone('Asia/Bishkek')
 now = datetime.now(kyrgyzstan_tz)
 
-bot = telebot.TeleBot('8095424374:AAHn_OFwmipNXfHqpadBd1Rq6h6bcWFLk2c')
+bot = telebot.TeleBot(TOKEN)
 
 # Генерация общего QR-кода для всех сотрудников
 common_qr_url = "https://t.me/BPN_KG_managetime_bot?start=checkin"
