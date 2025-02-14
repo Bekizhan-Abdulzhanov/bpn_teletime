@@ -476,13 +476,18 @@ def run_bot():
 flask_thread = threading.Thread(target=run_flask)
 flask_thread.start()
 
-# Запуск бота
-run_bot()
+# Функция для запуска бота
+def run_bot():
+    bot.infinity_polling()
 
 if __name__ == '__main__':
-    serve(app, host='0.0.0.0', port=5000)
-    print("Бот запущен")
-    bot.infinity_polling()
+    # Запускаем Flask в отдельном потоке
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
+
+    # Запускаем бота
+    run_bot()
+
 
 print("Автоматическая запись времени включена.")
 print('Текущее время:',now)
