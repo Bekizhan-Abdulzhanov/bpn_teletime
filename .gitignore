@@ -1,6 +1,7 @@
-pycache/
+__pycache__/
 *.pyc
 common_qr_code.png
 *.csv
 *.xlsx
 config.py
+*.env

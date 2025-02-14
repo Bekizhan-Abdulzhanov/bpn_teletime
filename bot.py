@@ -2,6 +2,7 @@ import telebot
 from datetime import datetime
 import csv
 import os
+import threading
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton,ReplyKeyboardMarkup, KeyboardButton
@@ -21,10 +22,15 @@ now = datetime.now(kyrgyzstan_tz)
 
 bot = telebot.TeleBot(TOKEN)
 
-app=Flask(__name__)
+app = Flask(__name__)
+
 @app.route('/')
 def index():
     return "Bot is running."
+
+# Запуск Flask в отдельном потоке
+def run_flask():
+    serve(app, host='0.0.0.0', port=5000)
 
 # Генерация общего QR-кода для всех сотрудников
 common_qr_url = "https://t.me/BPN_KG_managetime_bot?start=checkin"
@@ -462,6 +468,16 @@ scheduler.start()
 
 # Запуск бота
 
+# Функция запуска Telegram-бота
+def run_bot():
+    bot.infinity_polling()
+
+# Запуск Flask в отдельном потоке
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.start()
+
+# Запуск бота
+run_bot()
 
 if __name__ == '__main__':
     serve(app, host='0.0.0.0', port=5000)
