@@ -1,7 +1,40 @@
-__pycache__/
+# Исключаем виртуальное окружение
+venv/
+.env
+.venv/
+
+# Исключаем кэшированные файлы Python
+_pycache_/
 *.pyc
-common_qr_code.png
-*.csv
-*.xlsx
+*.pyo
+*.pyd
+
+# Исключаем временные файлы и логи
+*.log
+*.sqlite3
+*.db
+*.pid
+*.swp
+*.swo
+
+# Исключаем файлы IDE и редакторов кода
+.vscode/
+.idea/
+*.iml
+
+# Исключаем файлы конфигурации системы
+.DS_Store
+*.bak
+*.old
+*.swp
+
+# Исключаем Telegram-токен (если он хранится в файле config.py)
 config.py
-*.env
+config.json
+
+# Исключаем автоматически сгенерированные отчеты
+work_reports/
+*.xlsx
+
+# Исключаем QR-код, который создается в коде
+common_qr_code.png
