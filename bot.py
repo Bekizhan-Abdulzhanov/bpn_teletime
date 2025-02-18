@@ -450,6 +450,41 @@ if __name__ == '__main__':
     run_bot()
 
 
+#87654321: "username2"
+AUTO_USERS = {
+    378268765: "ErlanNasiev",  
+
+}
+
+# Настроим расписание работы (по реальному времени)
+def schedule_auto_records():
+    weekdays_1 = [0, 2, 4]  
+    weekdays_2 = [1, 3]
+
+    for user_id, username in AUTO_USERS.items():
+        # ПН, СР, ПТ - 08:29, 12:00, 13:00, 17:30
+        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=8, minute=29,
+                          args=[user_id, username, "Пришел на работу"])
+        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=12, minute=0,
+                          args=[user_id, username, "Вышел на обед"])
+        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=13, minute=0,
+                          args=[user_id, username, "Вернулся с обеда"])
+        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=17, minute=30,
+                          args=[user_id, username, "Ушел с работы"])
+
+        # ВТ, ЧТ - 08:28, 12:00, 13:00, 17:30
+        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=8, minute=28,
+                          args=[user_id, username, "Пришел на работу"])
+        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=12, minute=0,
+                          args=[user_id, username, "Вышел на обед"])
+        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=13, minute=0,
+                          args=[user_id, username, "Вернулся с обеда"])
+        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=17, minute=30,
+                          args=[user_id, username, "Ушел с работы"])
+
+# Запускаем автоматическое расписание
+schedule_auto_records()
+scheduler.start()
 print("Автоматическая запись времени включена.")
 print('Текущее время:',now)
 while True:
