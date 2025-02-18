@@ -28,32 +28,32 @@ app = Flask(__name__)
 def index():
     return "Bot is running."
 
-# Запуск Flask в отдельном потоке
+
 def run_flask():
     serve(app, host='0.0.0.0', port=5000)
 
-# Генерация общего QR-кода для всех сотрудников
+
 common_qr_url = "https://t.me/BPN_KG_managetime_bot?start=checkin"
 qr = qrcode.make(common_qr_url)
 qr.save("common_qr_code.png")
 
-# Файлы для хранения данных
+
 WORKTIME_FILE = 'work_time.csv'
 EXCEL_REPORT_DIR = 'work_reports'
 USERS_FILE = 'users.csv'
 ADMIN_ID = 557174721
 
-  # Замените на ID администратора
+  
 
 
-# Создание папки для отчетов
+
 if not os.path.exists(EXCEL_REPORT_DIR):
     os.makedirs(EXCEL_REPORT_DIR)
 
 
-# Функция для записи рабочего времени с учетом временной зоны
+
 def save_work_time(user_id, user_name, action): 
-    now = datetime.now(kyrgyzstan_tz).strftime("%Y-%m-%d %H:%M:%S")  # Учитываем временную зону
+    now = datetime.now(kyrgyzstan_tz).strftime("%Y-%m-%d %H:%M:%S")  
     file_exists = os.path.isfile(WORKTIME_FILE) 
 
     try: 
@@ -66,12 +66,12 @@ def save_work_time(user_id, user_name, action):
     except Exception as e: 
         print(f"Ошибка при записи времени: {e}") 
 
-# В других местах, где используется время, также заменим на:
+
 now = datetime.now(kyrgyzstan_tz).strftime("%Y-%m-%d %H:%M:%S")
 
 scheduler = BackgroundScheduler()
 
-# Функция для регистрации сотрудников
+
 @bot.message_handler(commands=['register'])
 def register(message):
     user = message.from_user
@@ -82,7 +82,7 @@ def register(message):
                      reply_markup=approve_keyboard(user.id))
     bot.reply_to(message, "Ваша заявка отправлена администратору на рассмотрение.")
 
-# Клавиатура для админа
+
 def approve_keyboard(user_id):
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("Принять", callback_data=f"approve_{user_id}"))
@@ -103,7 +103,7 @@ def reject_user(call):
     bot.send_message(user_id, "Ваша заявка отклонена.")
     bot.send_message(ADMIN_ID, f"Пользователь {user_id} отклонен.")
 
-# Функция для обновления статуса пользователя
+
 def update_user_status(user_id, status):
     users = []
     with open(USERS_FILE, mode='r', encoding='utf-8') as file:
@@ -116,7 +116,7 @@ def update_user_status(user_id, status):
         writer = csv.writer(file)
         writer.writerows(users)
 
-# Проверка доступа
+
 def is_user_approved(user_id):
     with open(USERS_FILE, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file)
@@ -126,7 +126,7 @@ def is_user_approved(user_id):
     return False
 
 
-# Меню с кнопками
+
 @bot.message_handler(commands=['1'])
 def show_menu(message):
     if not is_user_approved(message.from_user.id):
@@ -143,7 +143,7 @@ def show_menu(message):
     )
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
 
-# Обработчик кнопок
+
 @bot.message_handler(func=lambda message: message.text in [ "🍽 Вышел на обед", "🍽 Вернулся с обеда", "🏁 Ушел с работы"])
 def handle_work_time(message):
     if not is_user_approved(message.from_user.id):
@@ -162,7 +162,7 @@ def handle_work_time(message):
     bot.reply_to(message, f"Вы отметили: {message.text}")
 
 
-# Команды бота
+
 @bot.message_handler(commands=['start'])
 def start_work(message):
     if not is_user_approved(message.from_user.id):
@@ -199,7 +199,7 @@ def end_work(message):
     save_work_time(user.id, user.username, "Ушел с работы")
     bot.reply_to(message, f"До свидания, {user.first_name}! Вы отметили уход с работы.")
 
-# Генерация отчета в Excel для администратора
+
 @bot.message_handler(commands=['all_reports'])
 def all_reports(message):
     if message.from_user.id != ADMIN_ID:
@@ -226,7 +226,7 @@ def edit_time(message):
     users = {}
     with open(WORKTIME_FILE, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file)
-        next(reader, None)  # Пропускаем заголовок
+        next(reader, None)  
         for row in reader:
             if len(row) < 2:
                 continue
@@ -328,12 +328,12 @@ def get_all_users():
         with open(USERS_FILE, 'r', encoding='utf-8') as file:
             reader = csv.reader(file)
             for row in reader:
-                users[row[0]] = row[1]  # user_id -> user_name
+                users[row[0]] = row[1]  
     return users
 
 
 
-# Функция для генерации отчета в Excel для каждого сотрудника
+
 def generate_excel_report(user_id):  
     if not os.path.exists(WORKTIME_FILE):  
         return None  
@@ -418,7 +418,7 @@ def generate_excel_report(user_id):
     wb.save(report_path)  
     return report_path
     
-# Отправка отчета пользователю 
+
 @bot.message_handler(commands=['send_excel_report'])
 def send_excel_report(message):
     user_id = message.from_user.id
@@ -430,62 +430,23 @@ def send_excel_report(message):
     else:
         bot.reply_to(message, "Отчет не найден. Проверьте, есть ли у вас записанные отметки о рабочем времени.")
 
-#87654321: "username2"
-AUTO_USERS = {
-    378268765: "ErlanNasiev",  
 
-}
-
-# Настроим расписание работы (по реальному времени)
-def schedule_auto_records():
-    weekdays_1 = [0, 2, 4]  
-    weekdays_2 = [1, 3]
-
-    for user_id, username in AUTO_USERS.items():
-        # ПН, СР, ПТ - 08:29, 12:00, 13:00, 17:30
-        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=8, minute=29,
-                          args=[user_id, username, "Пришел на работу"])
-        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=12, minute=0,
-                          args=[user_id, username, "Вышел на обед"])
-        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=13, minute=0,
-                          args=[user_id, username, "Вернулся с обеда"])
-        scheduler.add_job(save_work_time, "cron", day_of_week="mon,wed,fri", hour=17, minute=30,
-                          args=[user_id, username, "Ушел с работы"])
-
-        # ВТ, ЧТ - 08:28, 12:00, 13:00, 17:30
-        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=8, minute=28,
-                          args=[user_id, username, "Пришел на работу"])
-        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=12, minute=0,
-                          args=[user_id, username, "Вышел на обед"])
-        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=13, minute=0,
-                          args=[user_id, username, "Вернулся с обеда"])
-        scheduler.add_job(save_work_time, "cron", day_of_week="tue,thu", hour=17, minute=30,
-                          args=[user_id, username, "Ушел с работы"])
-
-# Запускаем автоматическое расписание
-schedule_auto_records()
-scheduler.start()
-
-# Запуск бота
-
-# Функция запуска Telegram-бота
 def run_bot():
     bot.infinity_polling()
 
-# Запуск Flask в отдельном потоке
+
 flask_thread = threading.Thread(target=run_flask)
 flask_thread.start()
 
-# Функция для запуска бота
+
 def run_bot():
     bot.infinity_polling()
 
 if __name__ == '__main__':
-    # Запускаем Flask в отдельном потоке
+    
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
 
-    # Запускаем бота
     run_bot()
 
 
