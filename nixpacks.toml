@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["python39", "postgresql_16"]
+
+[phases.build]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python bot.py"
