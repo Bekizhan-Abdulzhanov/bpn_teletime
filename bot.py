@@ -13,7 +13,8 @@ import qrcode
 from config import TOKEN
 from waitress import serve
 from flask import Flask
-
+from dotenv import load_dotenv
+load_dotenv()
 os.environ['TZ'] = 'Asia/Bishkek'
 
 kyrgyzstan_tz = pytz.timezone('Asia/Bishkek')
