@@ -21,7 +21,7 @@ now = datetime.now(kyrgyzstan_tz)
 
 bot = telebot.TeleBot(TOKEN)
 
-TOKEN =os.environ.get('TOKEN')
+TOKEN = os.environ.get('TOKEN')
 if not TOKEN:
     raise Exception('Переменная окружения TOKEN не установлена')
 
