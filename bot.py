@@ -13,15 +13,17 @@ import qrcode
 from config import TOKEN
 from waitress import serve
 from flask import Flask
-from dotenv import load_dotenv
 
 os.environ['TZ'] = 'Asia/Bishkek'
 
 kyrgyzstan_tz = pytz.timezone('Asia/Bishkek')
 now = datetime.now(kyrgyzstan_tz)
 
-load_dotenv()
 bot = telebot.TeleBot(TOKEN)
+
+TOKEN =os.environ.get('TOKEN')
+if not TOKEN:
+    raise Exception('Переменная окружения TOKEN не установлена')
 
 app = Flask(__name__)
 
