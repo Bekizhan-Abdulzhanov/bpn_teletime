@@ -1,7 +1,6 @@
 import telebot
 from datetime import datetime
 import csv
-import os
 import threading
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
@@ -10,21 +9,25 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import time
 import pytz
 import qrcode
-from config import TOKEN
 from waitress import serve
 from flask import Flask
 from dotenv import load_dotenv
 load_dotenv()
+
+import os
+
 os.environ['TZ'] = 'Asia/Bishkek'
 
 kyrgyzstan_tz = pytz.timezone('Asia/Bishkek')
 now = datetime.now(kyrgyzstan_tz)
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot('TOKEN')
 
 TOKEN = os.environ.get('TOKEN')
 if not TOKEN:
     raise Exception('Переменная окружения TOKEN не установлена')
+
+bot = telebot.TeleBot('TOKEN')
 
 app = Flask(__name__)
 
