@@ -21,13 +21,11 @@ os.environ['TZ'] = 'Asia/Bishkek'
 kyrgyzstan_tz = pytz.timezone('Asia/Bishkek')
 now = datetime.now(kyrgyzstan_tz)
 
-bot = telebot.TeleBot('TOKEN')
-
-TOKEN = os.environ.get('TOKEN')
+TOKEN = os.environ.get("TOKEN")
 if not TOKEN:
     raise Exception('Переменная окружения TOKEN не установлена')
 
-bot = telebot.TeleBot('TOKEN')
+bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
