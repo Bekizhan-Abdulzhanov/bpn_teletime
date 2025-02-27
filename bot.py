@@ -204,6 +204,9 @@ def end_work(message):
     save_work_time(user.id, user.username, "Ушел с работы")
     bot.reply_to(message, f"До свидания, {user.first_name}! Вы отметили уход с работы.")
 
+@bot.message_handler(commands=['ping'])
+def ping(message):
+    bot.reply_to(message, "pong")
 
 @bot.message_handler(commands=['all_reports'])
 def all_reports(message):
@@ -452,8 +455,13 @@ if __name__ == '__main__':
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
 
-    run_bot()
+    bot.remove_webhook()
 
+    bot.infinity_polling()
+
+PORT =int(os.environ.get("PORT",5000))
+def run_flask()
+    serve(app,host='0.0.0.0',port=PORT)
 
 #87654321: "username2"
 AUTO_USERS = {
