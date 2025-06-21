@@ -3,6 +3,7 @@ from storage import save_work_time, update_user_status, is_user_approved, get_al
 from reports import generate_excel_report
 from config import ADMIN_ID
 
+
 def register_handlers(bot):
 
     @bot.message_handler(commands=['start'])
