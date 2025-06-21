@@ -26,12 +26,16 @@ def update_user_status(user_id, status):
         writer = csv.writer(file)
         writer.writerows(users)
 
+
 def is_user_approved(user_id):
-    if not os.path.exists(USERS_FILE):
+    try:
+        with open('users.csv', 'r', encoding='utf-8') as f:
+            for row in csv.reader(f):
+                if row[0] == str(user_id) and row[2] == 'approved':
+                    return True
+    except FileNotFoundError:
         return False
-    with open(USERS_FILE, 'r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        return any(row[0] == str(user_id) and row[2] == 'approved' for row in reader)
+    return False
 
 def get_all_users():
     users = {}

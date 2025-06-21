@@ -5,14 +5,15 @@ from config import ADMIN_ID
 
 
 
-def register_handlers(bot):
+from storage import is_user_approved
 
+def register_handlers(bot):
     @bot.message_handler(commands=['start'])
-    def start_work(message):
+    def start(message):
+        print("[DEBUG] /start received from", message.from_user.id)
         if not is_user_approved(message.from_user.id):
             return bot.reply_to(message, "Заявка не одобрена.")
-        save_work_time(message.from_user.id, message.from_user.username, "Пришел на работу")
-        bot.reply_to(message, "Отметка о приходе сохранена.")
+        bot.reply_to(message, "Бот работает! Команда /start работает.")
 
     @bot.message_handler(commands=['send_excel_report'])
     def send_excel_report(message):
