@@ -6,7 +6,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 import os
 from config import TOKEN, PORT
-from scheduler import setup_scheduler
+from schedulers import setup_scheduler
 from handlers import register_handlers
 
 load_dotenv()
