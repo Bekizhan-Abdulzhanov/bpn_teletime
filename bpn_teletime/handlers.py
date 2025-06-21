@@ -13,10 +13,17 @@ def register_handlers(bot):
         bot.reply_to(message, "Отметка о приходе сохранена.")
 
     @bot.message_handler(commands=['send_excel_report'])
-    def send_report(message):
-        path = generate_excel_report(message.from_user.id)
-        if path:
-            with open(path, 'rb') as file:
-                bot.send_document(message.chat.id, file)
+    def send_excel_report(message):
+        user_id = message.from_user.id
+
+        if not is_user_approved(user_id):
+            bot.reply_to(message, "Вы не зарегистрированы или ваша заявка не одобрена.")
+            return
+
+        report_path = generate_excel_report(user_id)
+
+        if report_path and os.path.exists(report_path):
+            with open(report_path, 'rb') as file:
+                bot.send_document(message.chat.id, file, caption="Ваш отчёт о рабочем времени.")
         else:
-            bot.reply_to(message, "Отчёт не найден.")
+            bot.reply_to(message, "Отчёт не найден. Убедитесь, что у вас есть записанные отметки.")
