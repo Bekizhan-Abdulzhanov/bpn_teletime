@@ -13,6 +13,8 @@ from waitress import serve
 from flask import Flask
 from dotenv import load_dotenv
 load_dotenv()
+import calendar
+
 
 
 import os
@@ -343,101 +345,139 @@ def get_all_users():
 
 
 
-def generate_excel_report(user_id):  
-    if not os.path.exists(WORKTIME_FILE):  
-        return None  
-    
-    user_data = {}  
-    with open(WORKTIME_FILE, mode='r', encoding='utf-8') as file:  
-        reader = csv.reader(file)  
-        next(reader, None)  
-        for row in reader:  
-            if len(row) != 4:  
-                continue  
-            uid, user_name, action, timestamp = row  
-            if uid != str(user_id):  
-                continue  
-            timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")  
-            date = timestamp.date()  
-            
-            if uid not in user_data:  
-                user_data[uid] = {'name': user_name, 'log': {}}  
-            
-            if date not in user_data[uid]['log']:  
-                user_data[uid]['log'][date] = {'start': None, 'lunch_out': None, 'lunch_in': None, 'end': None}  
-            
-            if action == "Пришел на работу":  
-                user_data[uid]['log'][date]['start'] = timestamp  
-            elif action == "Вышел на обед":  
-                user_data[uid]['log'][date]['lunch_out'] = timestamp  
-            elif action == "Вернулся с обеда":  
-                user_data[uid]['log'][date]['lunch_in'] = timestamp  
-            elif action == "Ушел с работы":  
-                user_data[uid]['log'][date]['end'] = timestamp  
-    
-    if str(user_id) not in user_data:  
-        return None  
-    
-    wb = Workbook()  
-    ws = wb.active  
-    ws.title = "Рабочий отчет"  
-    ws.append(["ID пользователя", "Имя пользователя", "Дата", "Начало", "Обед (выход)", "Обед (возврат)", "Конец", "Часы за день"])  
-    
-    total_hours_month = 0  
-    total_hours_all = 0  
-    
-    for date, times in sorted(user_data[str(user_id)]['log'].items()):  
-        start = times['start']  
-        lunch_out = times['lunch_out']  
-        lunch_in = times['lunch_in']  
-        end = times['end']  
-        
-        total_hours = 0  
-        if start and end:  
-            total_hours = (end - start).seconds / 3600  
-            if lunch_out and lunch_in:  
-                total_hours -= (lunch_in - lunch_out).seconds / 3600  
-            total_hours_month += total_hours  
-            total_hours_all += total_hours  
-        
-        ws.append([user_id, user_data[str(user_id)]['name'], date.strftime("%Y-%m-%d"),  
-                   start.strftime("%H:%M") if start else "",  
-                   lunch_out.strftime("%H:%M") if lunch_out else "",  
-                   lunch_in.strftime("%H:%M") if lunch_in else "",  
-                   end.strftime("%H:%M") if end else "",  
-                   round(total_hours, 2)])  
-    
-    ws.append([])  
-    ws.append(["Итого за месяц", round(total_hours_month, 2)])  
-    ws.append(["Итого за весь период", round(total_hours_all, 2)])  
-    
-    thin_border = Border(left=Side(style='thin'),  
-                         right=Side(style='thin'),  
-                         top=Side(style='thin'),  
-                         bottom=Side(style='thin'))  
-    
-    for col in ws.columns:  
-        for cell in col:  
-            cell.border = thin_border  
-            cell.alignment = Alignment(horizontal="center", vertical="center")  
-            if cell.row == 1:  
-                cell.font = Font(bold=True)  
-    
-    report_path = os.path.join(EXCEL_REPORT_DIR, f"report_{user_id}.xlsx")  
-    wb.save(report_path)  
-    return report_path
-    
+def generate_final_monthly_report(user_id, user_name, user_log, output_dir="work_reports"):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-@bot.message_handler(commands=['send_excel_report'])
-def send_excel_report(message):
+    wb = Workbook()
+
+    for month_idx in range(1, 13):
+        month_data = {
+            dt: user_log[dt] for dt in user_log
+            if dt.month == month_idx
+        }
+        if not month_data:
+            continue
+
+        sheet_name = calendar.month_name[month_idx]
+        ws = wb.create_sheet(title=sheet_name)
+
+        ws.merge_cells('A1:I1')
+        ws['A1'] = "Табель / Arbeitsblatt"
+        ws['A1'].font = Font(size=14, bold=True)
+        ws['A1'].alignment = Alignment(horizontal="center")
+
+        ws['A2'] = "Компания / Firma:"
+        ws['B2'] = "ОсОО «Business Academy BPN»"
+        ws['A3'] = "Имя сотрудника / Name des Mitarbeiters:"
+        ws['B3'] = user_name
+        ws['A4'] = "Должность / Funktion:"
+        ws['B4'] = "Сотрудник"
+
+        headers = ["День", "Дата", "Часы работы", "Отсутствие", "Переработка"]
+        ws.append([])
+        ws.append(headers)
+
+        total_hours = 0
+        work_norm = 8
+
+        for day in range(1, 32):
+            try:
+                date = datetime(datetime.now().year, month_idx, day).date()
+            except ValueError:
+                continue
+
+            record = user_log.get(date, {})
+            worked_hours = 0
+            if "start" in record and "end" in record:
+                worked_hours = (record["end"] - record["start"]).seconds / 3600
+                if "lunch_out" in record and "lunch_in" in record:
+                    worked_hours -= (record["lunch_in"] - record["lunch_out"]).seconds / 3600
+                worked_hours = round(worked_hours, 2)
+
+            total_hours += worked_hours
+
+            ws.append([
+                day,
+                date.strftime("%d.%m.%Y"),
+                worked_hours if worked_hours else "",
+                "" if worked_hours else "1",
+                ""
+            ])
+
+        ws.append([])
+        ws.append(["", "", "Итого отработано / Total geleistete Arbeitszeit:", round(total_hours, 2)])
+        ws.append(["", "", "Итого отсутствие / Total Absenz:", "0"])
+        ws.append(["", "", "Итого переработки / Total Überstunden:", "0"])
+
+        ws.append([])
+        ws.append(["Поле для пояснений сотрудника / Notizen und Anmerkungen Mitarbeiter:"])
+        ws.append([])
+        ws.append(["Поле для пояснений бухгалтера / Notizen und Anmerkungen Buchhaltung:"])
+        ws.append([])
+        ws.append(["", "", "Переработки на начало / Überstunden aus Vorperiode:", ""])
+        ws.append(["", "", "Отработано за месяц / Total geleistete Arbeitszeit IST:", round(total_hours, 2)])
+        ws.append(["", "", "Переработки за месяц / Total Überstunden in diesem Monat:", ""])
+        ws.append(["", "", "Месячный Норматив / Total Arbeitszeit SOLL:", "152"])
+        ws.append(["", "", "Переработка на конец / Total Überstunden Aktuell:", ""])
+        ws.append(["", "", "Оплачиваемых часов / Bezahlte Arbeitszeit:", ""])
+
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                             top=Side(style='thin'), bottom=Side(style='thin'))
+        for row in ws.iter_rows(min_row=6, max_col=5, max_row=ws.max_row):
+            for cell in row:
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    if 'Sheet' in wb.sheetnames:
+        wb.remove(wb['Sheet'])
+
+    file_name = f"{output_dir}/BPN_Report_{user_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    wb.save(file_name)
+    return file_name
+
+
+# --------------------- ДОБАВЛЕННАЯ КОМАНДА ДЛЯ БОТА ---------------------
+@bot.message_handler(commands=['report_sheet'])
+def send_monthly_sheet(message):
     user_id = message.from_user.id
-    report_file = generate_excel_report(user_id)
-    
-    if report_file and os.path.exists(report_file):
-        with open(report_file, 'rb') as file:
-            bot.send_document(message.chat.id, file, caption="Ваш личный отчет о рабочем времени.")
+    user_name = message.from_user.username
+
+    log_data = {}
+    if os.path.exists(WORKTIME_FILE):
+        with open(WORKTIME_FILE, mode='r', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            next(reader, None)
+            for row in reader:
+                if len(row) < 4:
+                    continue
+                uid, uname, action, timestamp = row
+                if str(user_id) != uid:
+                    continue
+                dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                if dt.date() not in log_data:
+                    log_data[dt.date()] = {}
+                if action == "Пришел на работу":
+                    log_data[dt.date()]["start"] = dt
+                elif action == "Вышел на обед":
+                    log_data[dt.date()]["lunch_out"] = dt
+                elif action == "Вернулся с обеда":
+                    log_data[dt.date()]["lunch_in"] = dt
+                elif action == "Ушел с работы":
+                    log_data[dt.date()]["end"] = dt
+
+    if not log_data:
+        bot.reply_to(message, "Нет данных для отчета.")
+        return
+
+    file_path = generate_final_monthly_report(user_id, user_name, log_data)
+
+    if file_path and os.path.exists(file_path):
+        with open(file_path, "rb") as file:
+            bot.send_document(message.chat.id, file, caption="Ваш табель по месяцам (Excel).")
     else:
-        bot.reply_to(message, "Отчет не найден. Проверьте, есть ли у вас записанные отметки о рабочем времени.")
+        bot.reply_to(message, "Не удалось сгенерировать отчет.")
+
 
 
 def run_bot():
