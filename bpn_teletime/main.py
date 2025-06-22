@@ -8,6 +8,9 @@ import os
 from config import TOKEN, PORT
 from schedulers import setup_scheduler
 from handlers import register_handlers
+import warnings
+warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
+
 
 load_dotenv()
 
