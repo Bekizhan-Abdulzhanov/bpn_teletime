@@ -3,7 +3,7 @@ from storage import save_work_time, update_user_status, is_user_approved, get_al
 from reports import generate_excel_report
 from config import ADMIN_ID
 
-
+import os
 
 from storage import is_user_approved
 
@@ -13,7 +13,7 @@ def register_handlers(bot):
         print("[DEBUG] /start received from", message.from_user.id)
         if not is_user_approved(message.from_user.id):
             return bot.reply_to(message, "Заявка не одобрена.")
-        bot.reply_to(message, "Бот работает! Команда /start работает.")
+        bot.reply_to(message, "Доброе утро! Хорошей вам рабочего дня.")
 
     @bot.message_handler(commands=['send_excel_report'])
     def send_excel_report(message):
