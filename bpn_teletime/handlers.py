@@ -2,7 +2,7 @@ import os
 import csv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from storage import save_work_time, is_user_approved, get_all_users
-from reports import generate_excel_report
+from reports import generate_excel_report_by_months
 from config import ADMIN_ID
 
 def register_handlers(bot):
@@ -32,7 +32,7 @@ def register_handlers(bot):
         if not is_user_approved(user_id):
             bot.reply_to(message, "❌ Вы не зарегистрированы или ваша заявка не одобрена.")
             return
-        report_path = generate_excel_report(user_id)
+        report_path = generate_excel_report_by_months(user_id)
         if report_path and os.path.exists(report_path):
             with open(report_path, 'rb') as file:
                 bot.send_document(message.chat.id, file, caption="📄 Ваш отчёт о рабочем времени.")
@@ -127,11 +127,9 @@ def register_handlers(bot):
         if message.from_user.id != ADMIN_ID:
             return bot.reply_to(message, "⛔ У вас нет доступа к этому действию.")
         for user_id in get_all_users():
-            path = generate_excel_report(user_id)
+            path = generate_excel_report_by_months(user_id)
             if path and os.path.exists(path):
                 with open(path, 'rb') as file:
                     bot.send_document(message.chat.id, file, caption=f"📎 Отчет пользователя {user_id}")
             else:
                 bot.send_message(message.chat.id, f"❌ Отчет для пользователя {user_id} не найден.")
-
-        
