@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 557174721
@@ -8,8 +11,4 @@ WORKTIME_FILE = 'work_time.csv'
 EXCEL_REPORT_DIR = 'work_reports'
 USERS_FILE = 'users.csv'
 
-
-from dotenv import load_dotenv
-load_dotenv()
-TOKEN = os.getenv("TOKEN")
 TIMEZONE = 'Asia/Bishkek'
