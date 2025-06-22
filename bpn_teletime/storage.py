@@ -2,15 +2,18 @@ import csv
 import os
 from config import USERS_FILE, WORKTIME_FILE
 from utils import format_now
+from excel_writer import write_event_to_excel
 
 def save_work_time(user_id, user_name, action):
+    timestamp = format_now()
     file_exists = os.path.isfile(WORKTIME_FILE)
     try:
         with open(WORKTIME_FILE, 'a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             if not file_exists:
                 writer.writerow(["User ID", "User Name", "Action", "Timestamp"])
-            writer.writerow([user_id, user_name, action, format_now()])
+            writer.writerow([user_id, user_name, action, timestamp])
+        write_event_to_excel(user_id, user_name, action, timestamp)
     except Exception as e:
         print(f"Ошибка при записи: {e}")
 
@@ -25,7 +28,6 @@ def update_user_status(user_id, status):
     with open(USERS_FILE, 'w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerows(users)
-
 
 def is_user_approved(user_id):
     try:

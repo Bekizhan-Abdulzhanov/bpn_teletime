@@ -133,3 +133,5 @@ def register_handlers(bot):
                     bot.send_document(message.chat.id, file, caption=f"📎 Отчет пользователя {user_id}")
             else:
                 bot.send_message(message.chat.id, f"❌ Отчет для пользователя {user_id} не найден.")
+
+        
