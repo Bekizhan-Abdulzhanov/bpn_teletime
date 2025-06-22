@@ -1,6 +1,7 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from datetime import datetime
+from config import EXCEL_REPORT_DIR, WORKTIME_FILE
 import os
 import csv
 
@@ -14,6 +15,7 @@ def generate_excel_report_by_months(user_id):
 
     # Структура: {месяц: {дата: {...}}}
     monthly_data = {m: {} for m in range(1, 13)}
+    username = ""
 
     with open(WORKTIME_FILE, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
@@ -21,9 +23,10 @@ def generate_excel_report_by_months(user_id):
         for row in reader:
             if len(row) != 4:
                 continue
-            row_user_id, username, action, timestamp = row
+            row_user_id, name, action, timestamp = row
             if row_user_id != str(user_id):
                 continue
+            username = name
             dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
             date = dt.date()
             month = dt.month
@@ -48,6 +51,8 @@ def generate_excel_report_by_months(user_id):
         if not monthly_data[month]:
             continue
         ws = wb.create_sheet(title=datetime(2025, month, 1).strftime('%B'))  # Название месяца
+
+        ws.append([f"Отчет по сотруднику: {username}"])
         ws.append(["Дата", "Начало", "Обед-выход", "Обед-возврат", "Конец"])
 
         for date, times in sorted(monthly_data[month].items()):
@@ -64,13 +69,12 @@ def generate_excel_report_by_months(user_id):
                 cell.border = Border(left=Side(style='thin'), right=Side(style='thin'),
                                      top=Side(style='thin'), bottom=Side(style='thin'))
                 cell.alignment = Alignment(horizontal='center')
-                if cell.row == 1:
+                if cell.row in [1, 2]:
                     cell.font = Font(bold=True)
 
     report_path = f"{EXCEL_REPORT_DIR}/report_{user_id}_months.xlsx"
     wb.save(report_path)
     print(f"[DEBUG] Отчет по месяцам сохранен в: {report_path}")
     return report_path
-
 
 
