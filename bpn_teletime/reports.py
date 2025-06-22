@@ -1,9 +1,11 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
-from config import EXCEL_REPORT_DIR, WORKTIME_FILE
 from datetime import datetime
 import os
 import csv
+
+EXCEL_REPORT_DIR = "work_reports"
+WORKTIME_FILE = "work_time.csv"
 
 def generate_excel_report_by_months(user_id):
     if not os.path.exists(WORKTIME_FILE):
