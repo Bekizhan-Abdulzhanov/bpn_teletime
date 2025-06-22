@@ -1,11 +1,9 @@
+import os
+import csv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from storage import save_work_time, update_user_status, is_user_approved, get_all_users
+from storage import save_work_time, is_user_approved, get_all_users
 from reports import generate_excel_report
 from config import ADMIN_ID
-
-import os
-
-from storage import is_user_approved
 
 def register_handlers(bot):
 
@@ -25,8 +23,7 @@ def register_handlers(bot):
             bot.reply_to(message, "❌ Заявка не одобрена.")
             return
         save_work_time(user_id, message.from_user.username, "Пришел на работу")
-        bot.reply_to(message, f"👋 Добро пожаловать, {message.from_user.first_name}!
-        📌 Отметка о начале рабочего дня сохранена.")
+        bot.reply_to(message, f"👋 Добро пожаловать, {message.from_user.first_name}!\n📌 Отметка о начале рабочего дня сохранена.")
         show_menu(message)
 
     @bot.message_handler(commands=['send_excel_report'])
