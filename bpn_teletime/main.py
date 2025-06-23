@@ -40,5 +40,9 @@ if __name__ == '__main__':
     setup_scheduler(scheduler)
     scheduler.start()
 
+    # 📢 Уведомления
+    from notifier import setup_notifications
+    setup_notifications()
+
     print("Bot is running...")
     bot.infinity_polling()
