@@ -10,6 +10,9 @@ from schedulers import setup_scheduler
 from handlers import register_handlers
 import warnings
 warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
+from notifier import setup_notifications
+setup_notifications()
+
 
 
 load_dotenv()
