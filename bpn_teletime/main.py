@@ -5,18 +5,20 @@ import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 import os
-from config import TOKEN, PORT
-from schedulers import setup_scheduler
-from handlers import register_handlers
 import warnings
-warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
-from notifier import setup_notifications
-setup_notifications(scheduler, bot)
+
+from config import TOKEN, PORT
+from handlers import register_handlers
 from admin_handlers import register_admin_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
 
+
+warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
+
+
 load_dotenv()
+
 
 bot = TeleBot(TOKEN)
 app = Flask(__name__)
@@ -25,6 +27,7 @@ app = Flask(__name__)
 def index():
     return "Bot is running."
 
+
 def run_flask():
     serve(app, host='0.0.0.0', port=PORT)
 
@@ -32,20 +35,16 @@ if __name__ == '__main__':
     # Запуск Flask-сервера
     threading.Thread(target=run_flask).start()
 
-    # Регистрация хендлеров
+    # Регистрация всех хендлеров
     register_handlers(bot)
+    register_admin_handlers(bot)
     print("🤖 Бот запущен. Ждём команды...")
 
-    # Регистрация хендлеров Админа
-    register_admin_handlers(bot) 
-
-    # Планировщик уведомления
+    # Планировщик
     scheduler = BackgroundScheduler()
-    setup_scheduler(scheduler, bot)
-    setup_notifications(scheduler, bot)  # ⬅️ Вставь здесь
+    setup_scheduler(scheduler, bot)         # Автоматические отметки и отчёты
+    setup_notifications(scheduler, bot)     # Уведомления сотрудникам
     scheduler.start()
-
-
 
     print("Bot is running...")
     bot.infinity_polling()
