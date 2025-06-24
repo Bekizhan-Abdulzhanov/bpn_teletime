@@ -14,7 +14,7 @@ from notifier import setup_notifications
 setup_notifications()
 from admin_handlers import register_admin_handlers
 from schedulers import setup_scheduler
-
+from notifier import setup_notifications
 
 load_dotenv()
 
@@ -39,15 +39,13 @@ if __name__ == '__main__':
     # Регистрация хендлеров Админа
     register_admin_handlers(bot) 
 
-    # Планировщик
+    # Планировщик уведомления
     scheduler = BackgroundScheduler()
-    setup_scheduler(scheduler,bot)
-
-
-    # 📢 Уведомления
-    from notifier import setup_notifications
     setup_scheduler(scheduler, bot)
-    setup_notifications(scheduler, bot)
+    setup_notifications(scheduler, bot)  # ⬅️ Вставь здесь
+    scheduler.start()
+
+
 
     scheduler.start()
 
