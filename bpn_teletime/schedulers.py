@@ -11,13 +11,13 @@ import config
 dotenv.load_dotenv()
 ADMIN_ID = int(os.getenv("ADMIN_ID", config.ADMIN_ID))  # Поддержка из .env или config
 
-# ✅ Список пользователей, для которых автоматическая отметка
+
 AUTO_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
 }
 
-# ✅ Настройка автоматических отметок по дням недели
+
 def setup_scheduler(scheduler, bot):
     # Автоматическая отправка отчета админу 29, 30 и 27 февраля в 8:30
     scheduler.add_job(
