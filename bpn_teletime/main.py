@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     # Планировщик
     scheduler = BackgroundScheduler()
-    setup_scheduler(scheduler)
+    setup_scheduler(scheduler,bot)
     scheduler.start()
 
     # 📢 Уведомления
