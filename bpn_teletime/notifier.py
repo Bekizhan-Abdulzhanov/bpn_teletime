@@ -1,22 +1,21 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-from telebot import TeleBot
-from config import TOKEN
+from apscheduler.triggers.cron import CronTrigger
+from datetime import datetime
+from config import ADMIN_ID
 from storage import get_all_users
 
-bot = TeleBot(TOKEN)
-scheduler = BackgroundScheduler(timezone='Asia/Bishkek')
+# ✅ Уведомления для всех пользователей
+def setup_notifications(scheduler, bot):
+    def send_reminder_all_users(text):
+        for user_id in get_all_users().keys():
+            try:
+                bot.send_message(user_id, text)
+            except Exception as e:
+                print(f"[ERROR] Не удалось отправить сообщение пользователю {user_id}: {e}")
 
-def send_reminder_to_all_users(text):
-    users = get_all_users()
-    for user_id in users:
-        try:
-            bot.send_message(user_id, text)
-        except Exception as e:
-            print(f"[ERROR] Не удалось отправить сообщение {user_id}: {e}")
+    scheduler.add_job(send_reminder_all_users, CronTrigger(hour=8, minute=28), args=["🌞 Вы уже в пути на работу? Не забудьте меня отметить 🙂"])
+    scheduler.add_job(send_reminder_all_users, CronTrigger(hour=11, minute=58), args=["🍽 Приятного аппетита! Не забудьте меня отметить 🙂"])
+    scheduler.add_job(send_reminder_all_users, CronTrigger(hour=13, minute=58), args=["💼 Желаю вам продуктивной работы! Не забудьте меня отметить 🙂"])
+    scheduler.add_job(send_reminder_all_users, CronTrigger(hour=17, minute=28), args=["✅ Вы сегодня хорошо поработали! Не забудьте меня отметить 🙂"])
 
-def setup_notifications():
-    scheduler.add_job(lambda: send_reminder_to_all_users("Вы уже в пути на работу? Не забудьте меня отметить 😊"), 'cron', hour=8, minute=28)
-    scheduler.add_job(lambda: send_reminder_to_all_users("Приятного аппетита! Не забудьте меня отметить 😊"), 'cron', hour=11, minute=58)
-    scheduler.add_job(lambda: send_reminder_to_all_users("Желаю вам продуктивной работы! Не забудьте меня отметить 😊"), 'cron', hour=13, minute=58)
-    scheduler.add_job(lambda: send_reminder_to_all_users("Вы сегодня хорошо поработали! Не забудьте меня отметить 😊"), 'cron', hour=17, minute=28)
-    scheduler.start()
+    print("[SCHEDULER] Уведомления настроены.")
+
