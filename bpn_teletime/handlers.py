@@ -4,7 +4,6 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 from storage import save_work_time, is_user_approved, get_all_users
 from reports import generate_excel_report_by_months
 from config import ADMIN_ID
-from reports import generate_excel_report_by_months
 
 
 def register_handlers(bot):
@@ -34,12 +33,16 @@ def register_handlers(bot):
         if not is_user_approved(user_id):
             bot.reply_to(message, "❌ Вы не зарегистрированы или ваша заявка не одобрена.")
             return
-        report_path = generate_excel_report_by_months(user_id)
+
+        username = message.from_user.username or f"user_{user_id}"
+        report_path = generate_excel_report_by_months(user_id, username)
+
         if report_path and os.path.exists(report_path):
             with open(report_path, 'rb') as file:
                 bot.send_document(message.chat.id, file, caption="📄 Ваш отчёт о рабочем времени.")
         else:
             bot.reply_to(message, "⚠️ Отчёт не найден. Убедитесь, что у вас есть записанные отметки.")
+
 
     @bot.message_handler(commands=['1'])
     def manual_menu(message):
