@@ -11,7 +11,7 @@ from handlers import register_handlers
 import warnings
 warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
 from notifier import setup_notifications
-setup_notifications()
+setup_notifications(scheduler, bot)
 from admin_handlers import register_admin_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
@@ -46,8 +46,6 @@ if __name__ == '__main__':
     scheduler.start()
 
 
-
-    scheduler.start()
 
     print("Bot is running...")
     bot.infinity_polling()
