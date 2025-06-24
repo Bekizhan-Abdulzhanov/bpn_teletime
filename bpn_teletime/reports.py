@@ -1,14 +1,13 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
-from datetime import datetime, timedelta, date
-from calendar import monthrange, Calendar
+from datetime import datetime, time
 from config import EXCEL_REPORT_DIR, WORKTIME_FILE
 import os
 import csv
 
+# Настройки
 START_HOUR = 8
 START_MINUTE = 30
-
 
 def generate_excel_report_by_months(user_id, username):
     if not os.path.exists(WORKTIME_FILE):
@@ -27,18 +26,18 @@ def generate_excel_report_by_months(user_id, username):
             if row_user_id != str(user_id):
                 continue
             dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-            d = dt.date()
-            m = dt.month
-            if d not in monthly_data[m]:
-                monthly_data[m][d] = {"start": '', "lunch_out": '', "lunch_in": '', "end": ''}
+            date = dt.date()
+            month = dt.month
+            if date not in monthly_data[month]:
+                monthly_data[month][date] = {"start": None, "lunch_out": None, "lunch_in": None, "end": None}
             if action == "Пришел на работу":
-                monthly_data[m][d]["start"] = dt
+                monthly_data[month][date]["start"] = dt
             elif action == "Вышел на обед":
-                monthly_data[m][d]["lunch_out"] = dt
+                monthly_data[month][date]["lunch_out"] = dt
             elif action == "Вернулся с обеда":
-                monthly_data[m][d]["lunch_in"] = dt
+                monthly_data[month][date]["lunch_in"] = dt
             elif action == "Ушел с работы":
-                monthly_data[m][d]["end"] = dt
+                monthly_data[month][date]["end"] = dt
 
     if not os.path.exists(EXCEL_REPORT_DIR):
         os.makedirs(EXCEL_REPORT_DIR)
@@ -47,50 +46,51 @@ def generate_excel_report_by_months(user_id, username):
     wb.remove(wb.active)
 
     total_minutes = 0
-    calendar = Calendar()
+    total_working_days = 0
+    total_late = 0
+    total_absent = 0
 
     for month in range(1, 13):
         if not monthly_data[month]:
             continue
 
         ws = wb.create_sheet(title=datetime(2025, month, 1).strftime('%B'))
-        ws.append(["Дата", "Начало", "Обед-выход", "Обед-возврат", "Конец", "Часы", "Опоздание", "Пропуск"])
+        ws.append(["Дата", "Начало", "Обед-выход", "Обед-возврат", "Конец", "Часы", "Опоздание"])
 
-        for day in calendar.itermonthdates(2025, month):
-            if day.month != month:
-                continue
-            times = monthly_data[month].get(day, {})
-
-            start = times.get("start")
-            lunch_out = times.get("lunch_out")
-            lunch_in = times.get("lunch_in")
-            end = times.get("end")
+        for date, times in sorted(monthly_data[month].items()):
+            start = times['start']
+            lunch_out = times['lunch_out']
+            lunch_in = times['lunch_in']
+            end = times['end']
 
             work_minutes = 0
-            is_late = False
-            is_absent = False
+            is_late = ''
 
-            if isinstance(start, datetime) and isinstance(end, datetime):
-                work_minutes = int((end - start).total_seconds() / 60)
-                if isinstance(lunch_out, datetime) and isinstance(lunch_in, datetime):
-                    work_minutes -= int((lunch_in - lunch_out).total_seconds() / 60)
-                if start.time() > datetime(2025, 1, 1, START_HOUR, START_MINUTE).time():
-                    is_late = True
+            if start and end:
+                total_working_days += 1
+                start_dt = start
+                end_dt = end
+                work_minutes = int((end_dt - start_dt).total_seconds() / 60)
+                if lunch_out and lunch_in:
+                    lunch_break = int((lunch_in - lunch_out).total_seconds() / 60)
+                    work_minutes -= lunch_break
+                is_late = "✅" if start_dt.time() > time(START_HOUR, START_MINUTE) else ""
+                if is_late:
+                    total_late += 1
             else:
-                is_absent = True
+                total_absent += 1
 
             hours = round(work_minutes / 60, 2) if work_minutes > 0 else ''
-            total_minutes += work_minutes if work_minutes > 0 else 0
+            total_minutes += work_minutes
 
             ws.append([
-                day.strftime('%Y-%m-%d'),
-                start.strftime('%H:%M:%S') if isinstance(start, datetime) else '',
-                lunch_out.strftime('%H:%M:%S') if isinstance(lunch_out, datetime) else '',
-                lunch_in.strftime('%H:%M:%S') if isinstance(lunch_in, datetime) else '',
-                end.strftime('%H:%M:%S') if isinstance(end, datetime) else '',
+                date.strftime('%Y-%m-%d'),
+                start.strftime('%H:%M:%S') if start else '',
+                lunch_out.strftime('%H:%M:%S') if lunch_out else '',
+                lunch_in.strftime('%H:%M:%S') if lunch_in else '',
+                end.strftime('%H:%M:%S') if end else '',
                 hours,
-                'Да' if is_late else '',
-                'Да' if is_absent else ''
+                is_late
             ])
 
         for col in ws.columns:
@@ -103,15 +103,16 @@ def generate_excel_report_by_months(user_id, username):
 
     total_hours = round(total_minutes / 60, 2)
     summary_sheet = wb.create_sheet(title="Итоги")
-    summary_sheet.append(["Имя пользователя", "ID", "Всего часов за год"])
-    summary_sheet.append([username, user_id, total_hours])
+    summary_sheet.append(["Имя пользователя", "ID", "Всего часов", "Рабочих дней", "Опозданий", "Пропусков"])
+    summary_sheet.append([username, user_id, total_hours, total_working_days, total_late, total_absent])
 
-    wb.create_sheet(title="Норма 2025")
+    # Пустой лист "Норма 2025"
+    norm_sheet = wb.create_sheet(title="Норма 2025")
+    norm_sheet.append(["Месяц", "Норма часов"])
+    for m in range(1, 13):
+        norm_sheet.append([datetime(2025, m, 1).strftime('%B'), ''])
 
     report_path = f"{EXCEL_REPORT_DIR}/summary_{username}_{user_id}.xlsx"
     wb.save(report_path)
     print(f"[DEBUG] Отчёт сохранён: {report_path}")
     return report_path
-
-
-
