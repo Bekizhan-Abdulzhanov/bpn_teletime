@@ -42,11 +42,14 @@ if __name__ == '__main__':
     # Планировщик
     scheduler = BackgroundScheduler()
     setup_scheduler(scheduler,bot)
-    scheduler.start()
+
 
     # 📢 Уведомления
     from notifier import setup_notifications
-    setup_notifications()
+    setup_scheduler(scheduler, bot)
+    setup_notifications(scheduler, bot)
+
+    scheduler.start()
 
     print("Bot is running...")
     bot.infinity_polling()
