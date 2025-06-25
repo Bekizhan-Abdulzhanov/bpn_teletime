@@ -42,19 +42,18 @@ def setup_scheduler(scheduler, bot):
     )
 
     for user_id, name in AUTO_USERS.items():
-        # Понедельник и Среда
+    
         scheduler.add_job(save_work_time, 'cron', day_of_week='mon,wed', hour=8, minute=29, args=[user_id, name, 'Пришел на работу'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='mon,wed', hour=12, minute=0, args=[user_id, name, 'Вышел на обед'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='mon,wed', hour=13, minute=0, args=[user_id, name, 'Вернулся с обеда'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='mon,wed', hour=17, minute=30, args=[user_id, name, 'Ушел с работы'])
 
-        # Вторник и Четверг
         scheduler.add_job(save_work_time, 'cron', day_of_week='tue,thu', hour=8, minute=28, args=[user_id, name, 'Пришел на работу'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='tue,thu', hour=12, minute=1, args=[user_id, name, 'Вышел на обед'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='tue,thu', hour=13, minute=0, args=[user_id, name, 'Вернулся с обеда'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='tue,thu', hour=17, minute=30, args=[user_id, name, 'Ушел с работы'])
 
-        # Пятница
+
         scheduler.add_job(save_work_time, 'cron', day_of_week='fri', hour=8, minute=27, args=[user_id, name, 'Пришел на работу'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='fri', hour=12, minute=0, args=[user_id, name, 'Вышел на обед'])
         scheduler.add_job(save_work_time, 'cron', day_of_week='fri', hour=13, minute=0, args=[user_id, name, 'Вернулся с обеда'])

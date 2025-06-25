@@ -6,6 +6,7 @@ from reports import generate_excel_report_by_months
 from config import ADMIN_ID
 
 
+
 def register_handlers(bot):
 
     def show_menu(message):
@@ -138,3 +139,4 @@ def register_handlers(bot):
                     bot.send_document(message.chat.id, file, caption=f"📎 Отчет пользователя {user_id}")
             else:
                 bot.send_message(message.chat.id, f"❌ Отчет для пользователя {user_id} не найден.")
+
