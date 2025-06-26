@@ -1,8 +1,11 @@
 # Исключаем виртуальное окружение
-venv/
-.venv/
-.config
 .env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+
 
 
 # Исключаем кэшированные файлы Python
