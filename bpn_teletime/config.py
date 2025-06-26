@@ -1,7 +1,7 @@
 import os
 
 TOKEN = os.getenv("TOKEN")  # ← будет взят из Railway → Variables
-ADMIN_ID = 557174721
+ADMIN_ID = 557174721  # ← твой user_id
 PORT = int(os.getenv("PORT", 8080))
 
 WORKTIME_FILE = 'work_time.csv'
