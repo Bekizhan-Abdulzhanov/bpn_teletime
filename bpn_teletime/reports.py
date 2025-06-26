@@ -1,9 +1,11 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from datetime import datetime, time
-from config import EXCEL_REPORT_DIR, WORKTIME_FILE
-import os
+from io import BytesIO
 import csv
+import os
+
+from config import WORKTIME_FILE
 
 # Настройки
 START_HOUR = 8
@@ -38,9 +40,6 @@ def generate_excel_report_by_months(user_id, username):
                 monthly_data[month][date]["lunch_in"] = dt
             elif action == "Ушел с работы":
                 monthly_data[month][date]["end"] = dt
-
-    if not os.path.exists(EXCEL_REPORT_DIR):
-        os.makedirs(EXCEL_REPORT_DIR)
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -112,7 +111,10 @@ def generate_excel_report_by_months(user_id, username):
     for m in range(1, 13):
         norm_sheet.append([datetime(2025, m, 1).strftime('%B'), ''])
 
-    report_path = f"{EXCEL_REPORT_DIR}/summary_{username}_{user_id}.xlsx"
-    wb.save(report_path)
-    print(f"[DEBUG] Отчёт сохранён: {report_path}")
-    return report_path
+    # Сохраняем в память, а не на диск
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    print(f"[DEBUG] Отчет сформирован для {username}")
+    return output

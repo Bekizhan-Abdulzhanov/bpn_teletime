@@ -1,10 +1,17 @@
 import os
 import csv
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from io import BytesIO
+from datetime import datetime
+from telebot.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InputFile,
+)
 from storage import save_work_time, is_user_approved, get_all_users
 from reports import generate_excel_report_by_months
 from config import ADMIN_ID
-
 
 
 def register_handlers(bot):
@@ -36,14 +43,17 @@ def register_handlers(bot):
             return
 
         username = message.from_user.username or f"user_{user_id}"
-        report_path = generate_excel_report_by_months(user_id, username)
+        file_data = generate_excel_report_by_months(user_id, username)
 
-        if report_path and os.path.exists(report_path):
-            with open(report_path, 'rb') as file:
-                bot.send_document(message.chat.id, file, caption="📄 Ваш отчёт о рабочем времени.")
+        if file_data:
+            filename = f"Report_{username}_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+            bot.send_document(
+                message.chat.id,
+                InputFile(file_data, filename),
+                caption="📄 Ваш отчёт о рабочем времени."
+            )
         else:
-            bot.reply_to(message, "⚠️ Отчёт не найден. Убедитесь, что у вас есть записанные отметки.")
-
+            bot.reply_to(message, "⚠️ Отчёт не найден или не удалось сформировать.")
 
     @bot.message_handler(commands=['1'])
     def manual_menu(message):
@@ -132,11 +142,11 @@ def register_handlers(bot):
     def send_all_reports(message):
         if message.from_user.id != ADMIN_ID:
             return bot.reply_to(message, "⛔ У вас нет доступа к этому действию.")
-        for user_id in get_all_users():
-            path = generate_excel_report_by_months(user_id)
-            if path and os.path.exists(path):
-                with open(path, 'rb') as file:
-                    bot.send_document(message.chat.id, file, caption=f"📎 Отчет пользователя {user_id}")
+        for user_id, username in get_all_users().items():
+            file_data = generate_excel_report_by_months(user_id, username)
+            if file_data:
+                filename = f"Report_{username}_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+                bot.send_document(message.chat.id, InputFile(file_data, filename), caption=f"📎 Отчет пользователя {username}")
             else:
-                bot.send_message(message.chat.id, f"❌ Отчет для пользователя {user_id} не найден.")
+                bot.send_message(message.chat.id, f"❌ Отчет для пользователя {username} не найден.")
 
