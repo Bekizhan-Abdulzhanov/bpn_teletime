@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
 
 TOKEN = os.getenv("TOKEN")  # ← ВАЖНО
 ADMIN_ID = 557174721
