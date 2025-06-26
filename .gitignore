@@ -2,6 +2,8 @@
 venv/
 .venv/
 .config
+.env
+
 
 # Исключаем кэшированные файлы Python
 _pycache_/
