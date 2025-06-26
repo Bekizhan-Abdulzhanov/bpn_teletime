@@ -18,9 +18,9 @@ warnings.filterwarnings("ignore", message="Timezone offset does not match system
 
 
 load_dotenv()
-
-
+TOKEN = os.getenv("TOKEN")
 bot = TeleBot(TOKEN)
+
 app = Flask(__name__)
 
 @app.route('/')
