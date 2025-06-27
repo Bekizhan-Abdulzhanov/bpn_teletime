@@ -1,23 +1,19 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Загружает переменные из .env, если запущено локально
-PORT = int(os.getenv("PORT", "8080"))
-# Получаем токен из переменных окружения
+load_dotenv()
+
 TOKEN = os.getenv("TOKEN")
-if not TOKEN:
-    raise ValueError("❌ Переменная TOKEN не установлена в окружении.")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-# Получаем и валидируем PORT
+# Приводим PORT к целому числу, обрабатываем ошибку, если невалиден
 try:
-    PORT = int(os.getenv("PORT", "8080"))  # По умолчанию — 8080
-    if not (0 < PORT < 65536):
-        raise ValueError
-except ValueError:
-    raise ValueError("❌ PORT variable must be integer between 0 and 65535")
+    PORT = int(os.getenv("PORT"))
+    if not (0 <= PORT <= 65535):
+        raise ValueError("PORT must be between 0 and 65535")
+except (TypeError, ValueError):
+    PORT = 8080  # Значение по умолчанию
 
-# Пароль администратора (опционально, если не захочешь жёстко задавать)
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "BPN123")
 
 # Пути к рабочим файлам
 WORKTIME_FILE = 'work_time.csv'
