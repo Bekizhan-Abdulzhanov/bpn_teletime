@@ -4,53 +4,43 @@ from waitress import serve
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 import warnings
-import os
-from dotenv import load_dotenv
-from bpn_teletime.config import TOKEN, PORT
 
-# Загрузить переменные окружения
-load_dotenv()
-
-# ⚠️ Получаем токен и порт
-TOKEN = os.getenv("TOKEN")
-PORT = int(os.getenv("PORT", 8080))  # обязательно int
-
-# Проверка на наличие токена
-if not TOKEN:
-    raise ValueError("❌ Переменная окружения TOKEN не установлена.")
-
-bot = TeleBot(TOKEN)
-
-# Импорты хендлеров
+from config import TOKEN, PORT
 from handlers import register_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
 
 warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
 
-# Инициализация Flask-приложения
+# Проверка на наличие токена
+if not TOKEN:
+    raise ValueError("❌ Переменная окружения TOKEN не установлена. Добавь её в Railway Variables или .env файл.")
+
+# Инициализация бота
+bot = TeleBot(TOKEN)
+
+# Flask-сервер
 app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return "🤖 BPN Telegram bot is running!"
+    return "✅ BPN Teletime бот работает."
 
-# Функция для запуска Flask в отдельном потоке
 def run_flask():
     serve(app, host='0.0.0.0', port=PORT)
 
 if __name__ == '__main__':
-    # Запуск Flask-сервера
+    # Запуск Flask в отдельном потоке
     threading.Thread(target=run_flask).start()
 
     # Регистрация всех хендлеров
     register_handlers(bot)
 
-    # Планировщик задач
+    # Настройка планировщика
     scheduler = BackgroundScheduler()
-    setup_scheduler(scheduler, bot)         # Автоматические отметки
-    setup_notifications(scheduler, bot)     # Напоминания
+    setup_scheduler(scheduler, bot)
+    setup_notifications(scheduler, bot)
     scheduler.start()
 
-    print("✅ Бот запущен и слушает команды...")
+    print("🤖 Бот запущен. Ожидаем команды...")
     bot.infinity_polling()

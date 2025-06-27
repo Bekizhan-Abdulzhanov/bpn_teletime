@@ -2,13 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Установим зависимости
+# Установка зависимостей
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем весь проект
+# Копируем код
 COPY . .
 
-# Запуск main.py из поддиректории (обрати внимание на путь)
+# Запускаем main.py
 CMD ["python", "bpn_teletime/main.py"]
-

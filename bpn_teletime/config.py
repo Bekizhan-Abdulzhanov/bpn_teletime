@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-TOKEN ='8095424374:AAHn_OFwmipNXfHqpadBd1Rq6h6bcWFLk2c'
+#TOKEN ='8095424374:AAHn_OFwmipNXfHqpadBd1Rq6h6bcWFLk2c'
 
 TOKEN = os.getenv("TOKEN")  # ⚠️ Важно: переменная должна быть установлена в Railway
 PORT = int(os.getenv("PORT", 8080))
