@@ -1,57 +1,56 @@
-import os
-import threading
-import warnings
-from dotenv import load_dotenv
+from telebot import TeleBot
 from flask import Flask
 from waitress import serve
-from telebot import TeleBot
+import threading
 from apscheduler.schedulers.background import BackgroundScheduler
-from handlers import register_handlers
+import warnings
+import os
+from dotenv import load_dotenv
+from bpn_teletime.config import TOKEN, PORT
 
-# Загружаем переменные из .env или из Railway → Variables
+# Загрузить переменные окружения
 load_dotenv()
 
+# ⚠️ Получаем токен и порт
 TOKEN = os.getenv("TOKEN")
-PORT = int(os.getenv("PORT", 8080))
+PORT = int(os.getenv("PORT", 8080))  # обязательно int
 
+# Проверка на наличие токена
 if not TOKEN:
-    raise ValueError("❌ Переменная окружения TOKEN не найдена. Убедись, что она задана в .env или Railway → Variables")
+    raise ValueError("❌ Переменная окружения TOKEN не установлена.")
 
-warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
-
-# Создаем экземпляр бота
 bot = TeleBot(TOKEN)
 
-# Импортируем функции после создания бота
+# Импорты хендлеров
 from handlers import register_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
 
-# Flask-приложение
+warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
+
+# Инициализация Flask-приложения
 app = Flask(__name__)
 
-@app.route("/")
+@app.route('/')
 def index():
-    return "🤖 BPN Teletime Bot работает."
+    return "🤖 BPN Telegram bot is running!"
 
-# Функция для запуска Flask-сервера
+# Функция для запуска Flask в отдельном потоке
 def run_flask():
-    serve(app, host="0.0.0.0", port=PORT)
+    serve(app, host='0.0.0.0', port=PORT)
 
-if __name__ == "__main__":
-    # 1. Запуск Flask в отдельном потоке
+if __name__ == '__main__':
+    # Запуск Flask-сервера
     threading.Thread(target=run_flask).start()
 
-    # 2. Регистрация всех хендлеров
+    # Регистрация всех хендлеров
     register_handlers(bot)
 
-    # 3. Настройка планировщика
+    # Планировщик задач
     scheduler = BackgroundScheduler()
-    setup_scheduler(scheduler, bot)
-    setup_notifications(scheduler, bot)
+    setup_scheduler(scheduler, bot)         # Автоматические отметки
+    setup_notifications(scheduler, bot)     # Напоминания
     scheduler.start()
 
-    print("✅ Бот запущен. Ожидаем команды...")
+    print("✅ Бот запущен и слушает команды...")
     bot.infinity_polling()
-
-

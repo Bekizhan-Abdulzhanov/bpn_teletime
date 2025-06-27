@@ -1,50 +1,73 @@
 import csv
 import os
-from config import USERS_FILE, WORKTIME_FILE
-from utils import format_now
-from excel_writer import write_event_to_excel
-from reports import generate_excel_report_by_months
+from datetime import datetime
 
-def save_work_time(user_id, user_name, action):
-    timestamp = format_now()
-    file_exists = os.path.isfile(WORKTIME_FILE)
-    try:
-        with open(WORKTIME_FILE, 'a', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            if not file_exists:
-                writer.writerow(["User ID", "User Name", "Action", "Timestamp"])
-            writer.writerow([user_id, user_name, action, timestamp])
-        write_event_to_excel(user_id, user_name, action, timestamp)
-    except Exception as e:
-        print(f"Ошибка при записи: {e}")
+USERS_FILE = 'users.csv'
+ADMINS_FILE = 'admins.csv'
+WORKTIME_FILE = 'work_time.csv'
 
-def update_user_status(user_id, status):
-    users = []
-    with open(USERS_FILE, 'r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row[0] == str(user_id):
-                row[2] = status
-            users.append(row)
-    with open(USERS_FILE, 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerows(users)
 
-def is_user_approved(user_id):
-    try:
-        with open('users.csv', 'r', encoding='utf-8') as f:
-            for row in csv.reader(f):
-                if row[0] == str(user_id) and row[2] == 'approved':
-                    return True
-    except FileNotFoundError:
+def is_user_approved(user_id: int) -> bool:
+    if not os.path.exists(USERS_FILE):
         return False
+    with open(USERS_FILE, 'r', encoding='utf-8') as file:
+        for line in file:
+            parts = line.strip().split(',')
+            if str(user_id) == parts[0] and parts[2] == '1':
+                return True
     return False
 
-def get_all_users():
+
+def is_admin(user_id: int) -> bool:
+    if not os.path.exists(ADMINS_FILE):
+        return False
+    with open(ADMINS_FILE, 'r', encoding='utf-8') as file:
+        return str(user_id) in [line.strip() for line in file]
+
+
+def add_admin(user_id: int):
+    if not is_admin(user_id):
+        with open(ADMINS_FILE, 'a', encoding='utf-8') as file:
+            file.write(f"{user_id}\n")
+
+
+def get_all_users() -> dict:
     users = {}
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, 'r', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                users[row[0]] = row[1]
+    if not os.path.exists(USERS_FILE):
+        return users
+    with open(USERS_FILE, 'r', encoding='utf-8') as file:
+        for line in file:
+            parts = line.strip().split(',')
+            if len(parts) >= 2:
+                users[parts[0]] = parts[1]
     return users
+
+
+def approve_user_by_id(user_id: int):
+    updated = False
+    rows = []
+    user_id = str(user_id)
+
+    if not os.path.exists(USERS_FILE):
+        return False
+
+    with open(USERS_FILE, 'r', encoding='utf-8') as file:
+        for row in file:
+            parts = row.strip().split(',')
+            if parts[0] == user_id:
+                parts[2] = '1'
+                updated = True
+            rows.append(','.join(parts))
+
+    if updated:
+        with open(USERS_FILE, 'w', encoding='utf-8') as file:
+            file.write('\n'.join(rows) + '\n')
+    return updated
+
+
+def save_work_time(user_id: int, username: str, action: str):
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    with open(WORKTIME_FILE, 'a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow([user_id, username, action, now])
+
