@@ -1,20 +1,28 @@
 import os
 import csv
 from datetime import datetime
-from io import BytesIO
 from telebot.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    InputFile,
+    InlineKeyboardMarkup, InlineKeyboardButton,
+    ReplyKeyboardMarkup, KeyboardButton, InputFile
 )
+from config import ADMIN_PASSWORD
 from storage import save_work_time, is_user_approved, get_all_users
 from reports import generate_excel_report_by_months
-from config import ADMIN_ID
 
-TRUSTED_USERS = [ADMIN_ID]  # автоматически одобренные пользователи
+ADMINS_FILE = 'admins.csv'
 
+# --- Admin utils ---
+def is_admin(user_id):
+    if not os.path.exists(ADMINS_FILE):
+        return False
+    with open(ADMINS_FILE, 'r', encoding='utf-8') as file:
+        return str(user_id) in [line.strip() for line in file]
+
+def add_admin(user_id):
+    with open(ADMINS_FILE, 'a', encoding='utf-8') as file:
+        file.write(f"{user_id}\n")
+
+# --- Handlers ---
 def register_handlers(bot):
 
     def show_menu(message):
@@ -22,122 +30,80 @@ def register_handlers(bot):
         markup.add(
             KeyboardButton("🍽 Вышел на обед"),
             KeyboardButton("🍽 Вернулся с обеда"),
-            KeyboardButton("🏁 Ушел с работы")
+            KeyboardButton("🏑 Ушел с работы")
         )
         bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
 
     @bot.message_handler(commands=['start'])
     def start_work(message):
-        user_id = str(message.from_user.id)
+        user_id = message.from_user.id
         username = message.from_user.username or f"user_{user_id}"
-        name = message.from_user.first_name
+        if not is_user_approved(user_id):
+            return bot.reply_to(message, "❌ Заявка не одобрена. Зарегистрируйтесь через /register.")
+        save_work_time(user_id, username, "Пришел на работу")
+        bot.reply_to(message, f"👋 Добро пожаловать, {message.from_user.first_name}!")
+        show_menu(message)
 
-        # Автоматическое одобрение, если это админ или доверенный
-        is_admin = int(user_id) == ADMIN_ID
-        approved = 1 if is_admin or int(user_id) in TRUSTED_USERS else 0
+    @bot.message_handler(commands=['register'])
+    def register_user(message):
+        user_id = message.from_user.id
+        username = message.from_user.username or f"user_{user_id}"
+        if is_user_approved(user_id):
+            return bot.reply_to(message, "✅ Вы уже зарегистрированы.")
+        with open('users.csv', 'a', encoding='utf-8') as file:
+            file.write(f"{user_id},{username},1\n")
+        bot.reply_to(message, "✅ Вы успешно зарегистрированы!")
 
-        already_registered = False
-        if os.path.exists('users.csv'):
-            with open('users.csv', 'r', encoding='utf-8') as file:
-                for line in file:
-                    if line.startswith(user_id + ","):
-                        already_registered = True
-                        break
+    @bot.message_handler(commands=['admin'])
+    def ask_admin_password(message):
+        msg = bot.reply_to(message, "🔐 Введите пароль админа:")
+        bot.register_next_step_handler(msg, check_admin_password)
 
-        if not already_registered:
-            with open('users.csv', 'a', encoding='utf-8') as file:
-                file.write(f"{user_id},{username},{approved}\n")
-
-        if approved:
-            bot.reply_to(message, "✅ Вы зарегистрированы и одобрены.")
-            save_work_time(user_id, username, "Пришел на работу")
-            show_menu(message)
+    def check_admin_password(message):
+        user_id = message.from_user.id
+        if message.text.strip() == ADMIN_PASSWORD:
+            add_admin(user_id)
+            bot.reply_to(message, "✅ Теперь вы администратор!")
         else:
-            bot.reply_to(message, "📝 Ваша заявка отправлена. Ожидайте одобрения.")
+            bot.reply_to(message, "❌ Неверный пароль.")
 
-            markup = InlineKeyboardMarkup()
-            markup.add(
-                InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{user_id}"),
-                InlineKeyboardButton("🚫 Отклонить", callback_data=f"reject_{user_id}")
-            )
+    @bot.message_handler(commands=['admin_menu'])
+    def admin_menu(message):
+        if not is_admin(message.from_user.id):
+            return bot.reply_to(message, "⛔ У вас нет прав админа.")
+        markup = InlineKeyboardMarkup()
+        for user_id, username in get_all_users().items():
+            markup.add(InlineKeyboardButton(f"{username} ({user_id})", callback_data=f"edit_{user_id}"))
+        bot.send_message(message.chat.id, "👤 Выберите юзера:", reply_markup=markup)
 
-            bot.send_message(
-                ADMIN_ID,
-                f"🔔 Новая заявка:\n👤 @{username} ({user_id})\nИмя: {name}",
-                reply_markup=markup
-            )
-
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
-    def approve_user(call):
-        user_id = call.data.split("_")[1]
-        updated = False
-        rows = []
-
-        with open('users.csv', 'r', encoding='utf-8') as file:
-            for row in file:
-                parts = row.strip().split(',')
-                if parts[0] == user_id:
-                    parts[2] = '1'
-                    updated = True
-                rows.append(','.join(parts))
-
-        if updated:
-            with open('users.csv', 'w', encoding='utf-8') as file:
-                file.write('\n'.join(rows) + '\n')
-            bot.edit_message_text(
-                f"✅ Пользователь {user_id} одобрен.",
-                call.message.chat.id,
-                call.message.message_id
-            )
-            try:
-                bot.send_message(user_id, "✅ Ваша заявка одобрена. Вы можете пользоваться ботом.")
-            except:
-                pass
-        else:
-            bot.answer_callback_query(call.id, "❌ Пользователь не найден.")
-
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("reject_"))
-    def reject_user(call):
-        user_id = call.data.split("_")[1]
-        rows = []
-
-        with open('users.csv', 'r', encoding='utf-8') as file:
-            for row in file:
-                if not row.startswith(user_id + ","):
-                    rows.append(row.strip())
-
-        with open('users.csv', 'w', encoding='utf-8') as file:
-            file.write('\n'.join(rows) + '\n')
-
-        bot.edit_message_text(
-            f"🚫 Пользователь {user_id} отклонён и удалён из списка.",
-            call.message.chat.id,
-            call.message.message_id
-        )
-
-        try:
-            bot.send_message(user_id, "🚫 Ваша заявка была отклонена.")
-        except:
-            pass
+    @bot.message_handler(func=lambda m: m.text in [
+        "🍽 Вышел на обед",
+        "🍽 Вернулся с обеда",
+        "🏑 Ушел с работы"])
+    def handle_work_time(message):
+        if not is_user_approved(message.from_user.id):
+            return bot.reply_to(message, "❌ Вы не одобрены.")
+        actions = {
+            "🍽 Вышел на обед": "Вышел на обед",
+            "🍽 Вернулся с обеда": "Вернулся с обеда",
+            "🏑 Ушел с работы": "Ушел с работы"
+        }
+        action = actions[message.text]
+        save_work_time(message.from_user.id, message.from_user.username, action)
+        bot.reply_to(message, f"✅ Отмечено: {action}")
 
     @bot.message_handler(commands=['send_excel_report'])
     def send_excel_report(message):
         user_id = message.from_user.id
         if not is_user_approved(user_id):
-            return bot.reply_to(message, "❌ Вы не зарегистрированы или ваша заявка не одобрена.")
-
+            return bot.reply_to(message, "❌ Вы не одобрены.")
         username = message.from_user.username or f"user_{user_id}"
         file_data = generate_excel_report_by_months(user_id, username)
-
         if file_data:
             filename = f"Report_{username}_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
-            bot.send_document(
-                message.chat.id,
-                InputFile(file_data, filename),
-                caption="📄 Ваш отчёт о рабочем времени."
-            )
+            bot.send_document(message.chat.id, InputFile(file_data, filename), caption="📄 Ваш отчет")
         else:
-            bot.reply_to(message, "⚠️ Отчёт не найден или не удалось сформировать.")
+            bot.reply_to(message, "⚠️ Отчет не найден.")
 
     @bot.message_handler(commands=['1'])
     def manual_menu(message):

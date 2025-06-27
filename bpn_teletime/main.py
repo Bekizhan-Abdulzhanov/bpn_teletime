@@ -6,6 +6,7 @@ from flask import Flask
 from waitress import serve
 from telebot import TeleBot
 from apscheduler.schedulers.background import BackgroundScheduler
+from handlers import register_handlers
 
 # Загружаем переменные из .env или из Railway → Variables
 load_dotenv()
