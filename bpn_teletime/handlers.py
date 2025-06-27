@@ -1,7 +1,7 @@
 import os
 import csv
-from io import BytesIO
 from datetime import datetime
+from io import BytesIO
 from telebot.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
@@ -13,8 +13,7 @@ from storage import save_work_time, is_user_approved, get_all_users
 from reports import generate_excel_report_by_months
 from config import ADMIN_ID
 
-# Список доверенных пользователей, которых одобряют автоматически
-TRUSTED_USERS = [557174721]  # ← добавь user_id доверенных пользователей
+TRUSTED_USERS = [ADMIN_ID]  # автоматически одобренные пользователи
 
 def register_handlers(bot):
 
@@ -33,19 +32,24 @@ def register_handlers(bot):
         username = message.from_user.username or f"user_{user_id}"
         name = message.from_user.first_name
 
+        # Автоматическое одобрение, если это админ или доверенный
+        is_admin = int(user_id) == ADMIN_ID
+        approved = 1 if is_admin or int(user_id) in TRUSTED_USERS else 0
+
+        already_registered = False
         if os.path.exists('users.csv'):
             with open('users.csv', 'r', encoding='utf-8') as file:
                 for line in file:
                     if line.startswith(user_id + ","):
-                        return bot.reply_to(message, "✅ Вы уже зарегистрированы или заявка в ожидании.")
+                        already_registered = True
+                        break
 
-        approved = 1 if int(user_id) in TRUSTED_USERS else 0
-
-        with open('users.csv', 'a', encoding='utf-8') as file:
-            file.write(f"{user_id},{username},{approved}\n")
+        if not already_registered:
+            with open('users.csv', 'a', encoding='utf-8') as file:
+                file.write(f"{user_id},{username},{approved}\n")
 
         if approved:
-            bot.reply_to(message, "✅ Вы автоматически зарегистрированы.")
+            bot.reply_to(message, "✅ Вы зарегистрированы и одобрены.")
             save_work_time(user_id, username, "Пришел на работу")
             show_menu(message)
         else:
@@ -120,8 +124,7 @@ def register_handlers(bot):
     def send_excel_report(message):
         user_id = message.from_user.id
         if not is_user_approved(user_id):
-            bot.reply_to(message, "❌ Вы не зарегистрированы или ваша заявка не одобрена.")
-            return
+            return bot.reply_to(message, "❌ Вы не зарегистрированы или ваша заявка не одобрена.")
 
         username = message.from_user.username or f"user_{user_id}"
         file_data = generate_excel_report_by_months(user_id, username)
@@ -131,7 +134,7 @@ def register_handlers(bot):
             bot.send_document(
                 message.chat.id,
                 InputFile(file_data, filename),
-                caption="📄 Ваш отчёт о рабочем време."
+                caption="📄 Ваш отчёт о рабочем времени."
             )
         else:
             bot.reply_to(message, "⚠️ Отчёт не найден или не удалось сформировать.")
@@ -167,4 +170,3 @@ def register_handlers(bot):
                 bot.send_document(message.chat.id, InputFile(file_data, filename), caption=f"📎 Отчет пользователя {username}")
             else:
                 bot.send_message(message.chat.id, f"❌ Отчет для пользователя {username} не найден.")
-
