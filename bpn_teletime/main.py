@@ -15,6 +15,10 @@ from notifier import setup_notifications
 warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
 
 load_dotenv()
+if not TOKEN:
+    raise ValueError("❌ Переменная TOKEN не установлена. Проверь .env или Railway Variables.")
+
+
 bot = TeleBot(TOKEN)
 app = Flask(__name__)
 
