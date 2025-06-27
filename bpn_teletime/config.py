@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()  # Загружает переменные из .env, если запущено локально
-
+PORT = int(os.getenv("PORT", "8080"))
 # Получаем токен из переменных окружения
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
