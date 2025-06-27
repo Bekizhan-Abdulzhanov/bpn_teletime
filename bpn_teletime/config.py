@@ -11,6 +11,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 WORKTIME_FILE = 'work_time.csv'
 EXCEL_REPORT_DIR = 'work_reports'
 USERS_FILE = 'users.csv'
+ADMINS_FILE = 'admins.csv'
 
 TIMEZONE = 'Asia/Bishkek'
 
