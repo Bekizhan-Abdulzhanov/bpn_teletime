@@ -1,11 +1,13 @@
-from telebot import TeleBot
+import os
+import threading
+import warnings
 from flask import Flask
 from waitress import serve
-import threading
+from telebot import TeleBot
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
-import os
-import warnings
+
+load_dotenv()  # Загружаем переменные окружения
 
 from config import TOKEN, PORT
 from handlers import register_handlers
@@ -14,39 +16,33 @@ from notifier import setup_notifications
 
 warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
 
-load_dotenv()
+# Проверка токена
 if not TOKEN:
-    raise ValueError("❌ Переменная TOKEN не установлена. Проверь .env или Railway Variables.")
-
+    raise ValueError("❌ Переменная окружения TOKEN не найдена. Установи её в .env или Railway → Variables")
 
 bot = TeleBot(TOKEN)
 app = Flask(__name__)
 
-
-@app.route('/')
+@app.route("/")
 def index():
-    return "Bot is running."
-
+    return "🤖 BPN Time Bot is running!"
 
 def run_flask():
-    serve(app, host='0.0.0.0', port=PORT)
+    serve(app, host="0.0.0.0", port=PORT)
 
-
-if __name__ == '__main__':
-    # Запуск Flask-сервера в отдельном потоке
+if __name__ == "__main__":
+    # Flask сервер
     threading.Thread(target=run_flask).start()
 
-    # Регистрация всех хендлеров (всё внутри handlers.py)
+    # Регистрация всех обработчиков
     register_handlers(bot)
 
-    print("🤖 Бот запущен. Ждём команды...")
-
-    # Планировщик: автосохранения и уведомления
+    # Планировщик задач
     scheduler = BackgroundScheduler()
     setup_scheduler(scheduler, bot)
     setup_notifications(scheduler, bot)
     scheduler.start()
 
-    print("Bot is running...")
+    print("🤖 Бот запущен и ждёт команды...")
     bot.infinity_polling()
 
