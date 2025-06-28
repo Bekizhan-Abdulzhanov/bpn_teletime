@@ -7,80 +7,75 @@ import os
 
 from config import WORKTIME_FILE
 
-# Настройки
-START_HOUR = 8
-START_MINUTE = 30
+START_TIME = time(8, 30)  # Стандартное время начала работы
 
 def generate_excel_report_by_months(user_id, username):
     if not os.path.exists(WORKTIME_FILE):
         print("[ERROR] Файл work_time.csv не найден.")
         return None
 
-    monthly_data = {m: {} for m in range(1, 13)}
+    # Заготовка структуры: 12 месяцев по дням
+    data_by_month = {m: {} for m in range(1, 13)}
 
-    with open(WORKTIME_FILE, 'r', encoding='utf-8') as file:
-        reader = csv.reader(file)
+    with open(WORKTIME_FILE, 'r', encoding='utf-8') as f:
+        reader = csv.reader(f)
         next(reader, None)
         for row in reader:
             if len(row) != 4:
                 continue
-            row_user_id, row_username, action, timestamp = row
-            if row_user_id != str(user_id):
+            uid, _, action, timestamp = row
+            if uid != str(user_id):
                 continue
             dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
             date = dt.date()
             month = dt.month
-            if date not in monthly_data[month]:
-                monthly_data[month][date] = {"start": None, "lunch_out": None, "lunch_in": None, "end": None}
+
+            data_by_month[month].setdefault(date, {
+                "start": None, "lunch_out": None, "lunch_in": None, "end": None
+            })
+
             if action == "Пришел на работу":
-                monthly_data[month][date]["start"] = dt
+                data_by_month[month][date]["start"] = dt
             elif action == "Вышел на обед":
-                monthly_data[month][date]["lunch_out"] = dt
+                data_by_month[month][date]["lunch_out"] = dt
             elif action == "Вернулся с обеда":
-                monthly_data[month][date]["lunch_in"] = dt
+                data_by_month[month][date]["lunch_in"] = dt
             elif action == "Ушел с работы":
-                monthly_data[month][date]["end"] = dt
+                data_by_month[month][date]["end"] = dt
 
     wb = Workbook()
     wb.remove(wb.active)
 
-    total_minutes = 0
-    total_working_days = 0
-    total_late = 0
-    total_absent = 0
+    total_minutes = total_late = total_days = total_absent = 0
 
-    for month in range(1, 13):
-        if not monthly_data[month]:
+    for month, records in data_by_month.items():
+        if not records:
             continue
 
         ws = wb.create_sheet(title=datetime(2025, month, 1).strftime('%B'))
         ws.append(["Дата", "Начало", "Обед-выход", "Обед-возврат", "Конец", "Часы", "Опоздание"])
 
-        for date, times in sorted(monthly_data[month].items()):
-            start = times['start']
-            lunch_out = times['lunch_out']
-            lunch_in = times['lunch_in']
-            end = times['end']
+        for date, times in sorted(records.items()):
+            start, lunch_out, lunch_in, end = (
+                times["start"], times["lunch_out"], times["lunch_in"], times["end"]
+            )
 
             work_minutes = 0
-            is_late = ''
+            late = ""
 
             if start and end:
-                total_working_days += 1
-                start_dt = start
-                end_dt = end
-                work_minutes = int((end_dt - start_dt).total_seconds() / 60)
+                total_days += 1
+                work_minutes = int((end - start).total_seconds() // 60)
                 if lunch_out and lunch_in:
-                    lunch_break = int((lunch_in - lunch_out).total_seconds() / 60)
-                    work_minutes -= lunch_break
-                is_late = "✅" if start_dt.time() > time(START_HOUR, START_MINUTE) else ""
-                if is_late:
+                    work_minutes -= int((lunch_in - lunch_out).total_seconds() // 60)
+                if start.time() > START_TIME:
+                    late = "✅"
                     total_late += 1
             else:
                 total_absent += 1
 
+            total_minutes += max(work_minutes, 0)
             hours = round(work_minutes / 60, 2) if work_minutes > 0 else ''
-            total_minutes += work_minutes
 
             ws.append([
                 date.strftime('%Y-%m-%d'),
@@ -89,32 +84,38 @@ def generate_excel_report_by_months(user_id, username):
                 lunch_in.strftime('%H:%M:%S') if lunch_in else '',
                 end.strftime('%H:%M:%S') if end else '',
                 hours,
-                is_late
+                late
             ])
 
+        # Стилизация
         for col in ws.columns:
             for cell in col:
-                cell.border = Border(left=Side(style='thin'), right=Side(style='thin'),
-                                     top=Side(style='thin'), bottom=Side(style='thin'))
+                cell.border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
                 cell.alignment = Alignment(horizontal='center')
                 if cell.row == 1:
                     cell.font = Font(bold=True)
 
+    # ИТОГИ
     total_hours = round(total_minutes / 60, 2)
-    summary_sheet = wb.create_sheet(title="Итоги")
-    summary_sheet.append(["Имя пользователя", "ID", "Всего часов", "Рабочих дней", "Опозданий", "Пропусков"])
-    summary_sheet.append([username, user_id, total_hours, total_working_days, total_late, total_absent])
+    summary = wb.create_sheet(title="Итоги")
+    summary.append(["Имя пользователя", "ID", "Всего часов", "Рабочих дней", "Опозданий", "Пропусков"])
+    summary.append([username, user_id, total_hours, total_days, total_late, total_absent])
 
     # Пустой лист "Норма 2025"
-    norm_sheet = wb.create_sheet(title="Норма 2025")
-    norm_sheet.append(["Месяц", "Норма часов"])
+    norm = wb.create_sheet(title="Норма 2025")
+    norm.append(["Месяц", "Норма часов"])
     for m in range(1, 13):
-        norm_sheet.append([datetime(2025, m, 1).strftime('%B'), ''])
+        norm.append([datetime(2025, m, 1).strftime('%B'), ""])
 
-    # Сохраняем в память, а не на диск
+    # Сохраняем в память
     output = BytesIO()
     wb.save(output)
     output.seek(0)
 
-    print(f"[DEBUG] Отчет сформирован для {username}")
+    print(f"[DEBUG] Отчёт сформирован: {username}")
     return output

@@ -4,12 +4,15 @@ from waitress import serve
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 import warnings
+import os
 
 from config import TOKEN, PORT
 from handlers import register_handlers
+from admin_handlers import register_admin_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
 
+# Игнор предупреждения о таймзоне
 warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
 
 # Проверка на наличие токена
@@ -19,7 +22,7 @@ if not TOKEN:
 # Инициализация бота
 bot = TeleBot(TOKEN)
 
-# Flask-сервер
+# Flask-сервер для webhook или проверки доступности
 app = Flask(__name__)
 
 @app.route('/')
@@ -30,13 +33,14 @@ def run_flask():
     serve(app, host='0.0.0.0', port=PORT)
 
 if __name__ == '__main__':
-    # Запуск Flask в отдельном потоке
+    # Запуск Flask в отдельном потоке (для Railway/Render)
     threading.Thread(target=run_flask).start()
 
-    # Регистрация всех хендлеров
+    # Регистрация команд и логики бота
     register_handlers(bot)
+    register_admin_handlers(bot)
 
-    # Настройка планировщика
+    # Планировщик задач (например, уведомления, автоотчёты)
     scheduler = BackgroundScheduler()
     setup_scheduler(scheduler, bot)
     setup_notifications(scheduler, bot)
