@@ -7,7 +7,9 @@ AUTO_ENABLED_FILE = "auto_enabled.csv"
 
 # ===================== 🕒 Работа с рабочим временем =====================
 def save_work_time(user_id, username, action):
-    os.makedirs(os.path.dirname(WORKTIME_FILE), exist_ok=True)
+    dir_name = os.path.dirname(WORKTIME_FILE)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     with open(WORKTIME_FILE, "a", newline='', encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([user_id, username, action, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
