@@ -1,9 +1,11 @@
 from telebot import TeleBot
 from flask import Flask
 from waitress import serve
-import threading
 from apscheduler.schedulers.background import BackgroundScheduler
+from dotenv import load_dotenv
+import os
 import warnings
+
 from config import TOKEN, PORT
 from handlers import register_handlers
 from admin_handlers import register_admin_handlers
@@ -11,32 +13,33 @@ from schedulers import setup_scheduler
 from notifier import setup_notifications
 
 warnings.filterwarnings("ignore", message="Timezone offset does not match system offset")
-
-if not TOKEN:
-    raise ValueError("❌ Переменная окружения TOKEN не установлена.")
+load_dotenv()
 
 bot = TeleBot(TOKEN)
 app = Flask(__name__)
 
-@app.route('/')
+# Регистрация обработчиков
+register_handlers(bot)
+register_admin_handlers(bot)
+
+# Планировщик
+scheduler = BackgroundScheduler()
+setup_scheduler(scheduler, bot)
+setup_notifications(scheduler, bot)
+scheduler.start()
+
+@app.route("/")
 def index():
-    return "✅ BPN Teletime бот работает."
+    return "🤖 BPN TeleTime бот работает!"
 
-def run_flask():
-    serve(app, host='0.0.0.0', port=PORT)
-
-if __name__ == '__main__':
-    threading.Thread(target=run_flask).start()
-    register_handlers(bot)
-    register_admin_handlers(bot)
-
-    scheduler = BackgroundScheduler()
-    setup_scheduler(scheduler, bot)
-    setup_notifications(scheduler, bot)
-    scheduler.start()
-
-    # ❗ Удаляем старый webhook перед polling
-    bot.remove_webhook()
-
+if __name__ == "__main__":
+    # Запуск Flask + Telegram Polling
+    print("[SCHEDULER] Уведомления и ежедневные отчёты настроены.\n")
     print("🤖 Бот запущен. Ожидаем команды...")
+
+    if os.getenv("RAILWAY_ENVIRONMENT"):  # Railway
+        serve(app, host="0.0.0.0", port=PORT)
+    else:
+        app.run(host="0.0.0.0", port=PORT)
+    
     bot.infinity_polling(skip_pending=True)

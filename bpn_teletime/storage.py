@@ -1,15 +1,16 @@
 import os
 import csv
 from datetime import datetime
+from config import AUTO_APPROVED_USERS
 
 # Константы
-WORKTIME_FILE = "work_time.csv"
-USERS_FILE = "users.csv"
-AUTO_ENABLED_FILE = "auto_enabled.csv"
-AUTO_APPROVED_USERS = {
-    378268765: "ErlanNasiev",
-    557174721: "BekizhanAbdulzhanov",
-}
+DATA_DIR = "data"
+WORKTIME_FILE = os.path.join(DATA_DIR, "work_time.csv")
+USERS_FILE = os.path.join(DATA_DIR, "users.csv")
+AUTO_ENABLED_FILE = os.path.join(DATA_DIR, "auto_enabled.csv")
+
+# Убедимся, что папка для данных существует
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # 📌 Работа с отметками времени
 def save_work_time(user_id, username, action):
@@ -31,7 +32,7 @@ def is_user_approved(user_id):
 
 # 📌 Получение всех одобренных пользователей
 def get_all_users():
-    users = {uid: uname for uid, uname in AUTO_APPROVED_USERS.items()}
+    users = {}
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, "r", encoding="utf-8") as f:
             for row in csv.reader(f):
@@ -72,21 +73,25 @@ def reject_user_by_id(user_id):
         for row in csv.reader(f):
             if row and row[0] != str(user_id):
                 rows.append(row)
-    with open(USERS_FILE, "w", encoding="utf-8", newline="") as f:
+    with open(USERS_FILE, "w", encoding="utf-8", newline='') as f:
         writer = csv.writer(f)
         writer.writerows(rows)
 
+# 📌 Проверка авто-режима
 def is_auto_enabled(user_id):
     if not os.path.exists(AUTO_ENABLED_FILE):
         return False
     with open(AUTO_ENABLED_FILE, "r") as f:
         return str(user_id) in f.read().splitlines()
 
+# 📌 Включить авто-режим
 def enable_auto_mode(user_id):
-    if not is_auto_enabled(user_id):
-        with open(AUTO_ENABLED_FILE, "a") as f:
-            f.write(f"{user_id}\n")
+    if is_auto_enabled(user_id):
+        return
+    with open(AUTO_ENABLED_FILE, "a") as f:
+        f.write(f"{user_id}\n")
 
+# 📌 Выключить авто-режим
 def disable_auto_mode(user_id):
     if not os.path.exists(AUTO_ENABLED_FILE):
         return
