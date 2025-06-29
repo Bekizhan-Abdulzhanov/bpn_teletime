@@ -8,7 +8,6 @@ from telebot.types import (
     KeyboardButton,
     InputFile,
 )
-
 from config import ADMIN_IDS
 from storage import (
     save_work_time,
@@ -22,12 +21,6 @@ from storage import (
 )
 from reports import generate_excel_report_by_months
 
-
-ALLOWED_AUTO_USERS = {
-    378268765: "ErlanNasiev",
-    557174721: "BekizhanAbdulzhanov",
-}
-
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
@@ -36,7 +29,7 @@ def show_menu(bot, message):
     markup.add(
         KeyboardButton("🍽 Вышел на обед"),
         KeyboardButton("🍽 Вернулся с обеда"),
-        KeyboardButton("🏁 Ушел с работы"),
+        KeyboardButton("🏋 Ушел с работы"),
     )
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
 
@@ -67,7 +60,48 @@ def register_handlers(bot):
         with open("users.csv", "a", encoding="utf-8") as f:
             f.write(f"{user_id},{username},0\n")
 
-        bot.send_message(message.chat.id, "📥 Заявка отправлена. Ожидайте одобрения администратора.")
+        bot.send_message(message.chat.id, "📅 Заявка отправлена. Ожидайте одобрения администратора.")
+
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{user_id}"),
+            InlineKeyboardButton("❌ Отклонить", callback_data=f"reject_{user_id}")
+        )
+        for admin_id in ADMIN_IDS:
+            bot.send_message(admin_id, f"📩 Новый пользователь: @{username} (ID: {user_id})", reply_markup=markup)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
+    def handle_approve_user(call):
+        if not is_admin(call.from_user.id):
+            return bot.answer_callback_query(call.id, "⛔ Только для админов.")
+
+        user_id = int(call.data.replace("approve_", ""))
+        approve_user_by_id(user_id)
+        bot.send_message(call.message.chat.id, f"✅ Пользователь {user_id} одобрен.")
+        try:
+            bot.send_message(user_id, "✅ Ваша заявка одобрена! Вы можете пользоваться ботом.")
+        except Exception as e:
+            print(f"[WARN] Не удалось отправить сообщение пользователю {user_id}: {e}")
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("reject_"))
+    def handle_reject_user(call):
+        if not is_admin(call.from_user.id):
+            return bot.answer_callback_query(call.id, "⛔ Только для админов.")
+
+        user_id = int(call.data.replace("reject_", ""))
+        rows = []
+        with open("users.csv", "r", encoding="utf-8") as f:
+            for row in csv.reader(f):
+                if row and row[0] != str(user_id):
+                    rows.append(row)
+        with open("users.csv", "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
+        bot.send_message(call.message.chat.id, f"🚫 Пользователь {user_id} был отклонён.")
+        try:
+            bot.send_message(user_id, "🚫 Ваша заявка на регистрацию была отклонена.")
+        except Exception as e:
+            print(f"[WARN] Не удалось отправить сообщение пользователю {user_id}: {e}")
 
     @bot.message_handler(commands=["send_excel_report"])
     def send_excel_report(message):
@@ -80,25 +114,21 @@ def register_handlers(bot):
 
         if file_data:
             filename = f"Report_{username}_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
-            bot.send_document(
-                message.chat.id,
-                InputFile(file_data, filename),
-                caption="📄 Ваш отчёт о рабочем времени.",
-            )
+            bot.send_document(message.chat.id, InputFile(file_data, filename), caption="📄 Ваш отчёт о рабочем времени.")
         else:
             bot.reply_to(message, "⚠️ Отчёт не найден.")
 
-    @bot.message_handler(func=lambda msg: msg.text in [
-        "🍽 Вышел на обед",
-        "🍽 Вернулся с обеда",
-        "🏁 Ушел с работы"
-    ])
+    @bot.message_handler(func=lambda msg: msg.text in ["🍽 Вышел на обед", "🍽 Вернулся с обеда", "🏁 Ушел с работы"])
     def handle_actions(message):
         if not is_user_approved(message.from_user.id):
             return bot.reply_to(message, "❌ Вы не одобрены.")
 
         user = message.from_user
-        action = message.text.replace("🍽 ", "").replace("🏁 ", "")
+        action = {
+            "🍽 Вышел на обед": "Вышел на обед",
+            "🍽 Вернулся с обеда": "Вернулся с обеда",
+            "🏁 Ушел с работы": "Ушел с работы",
+        }[message.text]
 
         save_work_time(user.id, user.username, action)
         bot.reply_to(message, f"✅ Отмечено: {action}")
@@ -112,11 +142,7 @@ def register_handlers(bot):
             file_data = generate_excel_report_by_months(user_id, username)
             if file_data:
                 filename = f"Report_{username}_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
-                bot.send_document(
-                    message.chat.id,
-                    InputFile(file_data, filename),
-                    caption=f"📎 Отчет {username}",
-                )
+                bot.send_document(message.chat.id, InputFile(file_data, filename), caption=f"📎 Отчет {username}")
             else:
                 bot.send_message(message.chat.id, f"⚠️ Нет отчета для {username}.")
 
@@ -138,19 +164,10 @@ def register_handlers(bot):
             markup.add(InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{user_id}"))
             bot.send_message(message.chat.id, f"👤 @{username} (ID: {user_id})", reply_markup=markup)
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
-    def handle_approve_user(call):
-        if not is_admin(call.from_user.id):
-            return bot.answer_callback_query(call.id, "⛔ Только для админов.")
-
-        user_id = int(call.data.replace("approve_", ""))
-        approve_user_by_id(user_id)
-        bot.send_message(call.message.chat.id, f"✅ Пользователь {user_id} одобрен.")
-
-        try:
-            bot.send_message(user_id, "✅ Ваша заявка одобрена! Вы можете пользоваться ботом.")
-        except Exception as e:
-            print(f"[WARN] Не удалось отправить сообщение пользователю {user_id}: {e}")
+    ALLOWED_AUTO_USERS = {
+        378268765: "ErlanNasiev",
+        557174721: "BekizhanAbdulzhanov",
+    }
 
     @bot.message_handler(commands=["авторежим_вкл"])
     def auto_mode_on(message):
