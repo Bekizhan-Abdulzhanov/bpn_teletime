@@ -1,3 +1,4 @@
+# --- config.py ---
 import os
 from dotenv import load_dotenv
 
@@ -17,3 +18,7 @@ AUTO_APPROVED_USERS = {
     557174721: "BekizhanAbdulzhanov",
 }
 
+# 🔽 Добавь эти переменные ниже — это устраняет ошибку:
+WORKTIME_FILE = "data/work_time.csv"
+USERS_FILE = "data/users.csv"
+AUTO_ENABLED_FILE = "data/auto_enabled.csv"
