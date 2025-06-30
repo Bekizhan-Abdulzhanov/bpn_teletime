@@ -17,5 +17,7 @@ AUTO_APPROVED_USERS = {
     557174721: "BekizhanAbdulzhanov",
 }
 
-WORKTIME_FILE = "worktime.csv"
 
+WORKTIME_FILE    = "worktime.csv"
+USERS_FILE       = "users.csv"
+AUTO_ENABLED_FILE= "auto_enabled.csv"
