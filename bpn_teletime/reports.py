@@ -4,8 +4,8 @@ from datetime import datetime, time
 from io import BytesIO
 import csv
 import os
+from bpn_teletime.config import WORKTIME_FILE
 
-from config import WORKTIME_FILE
 
 START_TIME = time(8, 30)  # Стандартное время начала работы
 
