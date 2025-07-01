@@ -8,8 +8,8 @@ from telebot.types import (
     KeyboardButton,
     InputFile,
 )
-from .config import ADMIN_IDS
-from .storage import (
+from config import ADMIN_IDS
+from storage import (
     save_work_time,
     is_user_approved,
     get_all_users,
@@ -20,8 +20,8 @@ from .storage import (
     disable_auto_mode,
     is_auto_enabled
 )
-from .reports import generate_excel_report_by_months
-from .config import WORKTIME_FILE
+from reports import generate_excel_report_by_months
+from config import WORKTIME_FILE
 
 
 AUTO_APPROVED_USERS = {

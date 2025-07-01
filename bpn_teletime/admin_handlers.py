@@ -2,9 +2,9 @@ import os
 import csv
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from .config import ADMIN_IDS  # заменили с одного ID на список
-from .storage import get_all_users
-from .reports import generate_excel_report_by_months
+from config import ADMIN_IDS  # заменили с одного ID на список
+from storage import get_all_users
+from reports import generate_excel_report_by_months
 
 def register_admin_handlers(bot: TeleBot):
 

@@ -1,7 +1,7 @@
 import os
-from .config import ADMIN_IDS  # теперь список, а не один ID
-from .storage import get_all_users
-from .reports import generate_excel_report_by_months
+from config import ADMIN_IDS  # теперь список, а не один ID
+from storage import get_all_users
+from reports import generate_excel_report_by_months
 
 def send_monthly_reports(bot):
     users = get_all_users()

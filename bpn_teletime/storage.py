@@ -1,6 +1,6 @@
 import csv
 import os
-from .config import WORKTIME_FILE, AUTO_APPROVED_USERS
+from config import WORKTIME_FILE, AUTO_APPROVED_USERS
 
 APPROVED_USERS = set(AUTO_APPROVED_USERS.keys())
 
