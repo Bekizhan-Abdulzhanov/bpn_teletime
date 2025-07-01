@@ -13,6 +13,7 @@ from admin_handlers import register_admin_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
 
+# --- Инициализация бота и Flask ---
 bot = TeleBot(TOKEN)
 app = Flask(__name__)
 
@@ -20,13 +21,14 @@ app = Flask(__name__)
 register_handlers(bot)
 register_admin_handlers(bot)
 
-# Создаём планировщик в часовом поясе Asia/Bishkek (UTC+6)
+# --- Настройка планировщика в часовом поясе Asia/Bishkek (UTC+6) ---
 scheduler = BackgroundScheduler(timezone=ZoneInfo("Asia/Bishkek"))
 setup_scheduler(scheduler, bot)
 setup_notifications(scheduler, bot)
 scheduler.start()
 print("[SCHEDULER] Уведомления и ежедневные отчёты настроены (Asia/Bishkek).")
 
+# --- Простая web-страница для проверки ---
 @app.route("/")
 def index():
     return "Bot is running!"
@@ -35,11 +37,14 @@ def run_flask():
     serve(app, host="0.0.0.0", port=int(PORT))
 
 if __name__ == "__main__":
+    # Сбрасываем все вебхуки (без дополнительных аргументов)
     bot.remove_webhook()
+
+    # Запускаем Flask в фоне
     threading.Thread(target=run_flask, daemon=True).start()
     print(f"Веб-сервер запущен на порту {PORT}")
+
+    # Запускаем polling Telegram
     print("Запускаем polling бота…")
     bot.infinity_polling(skip_pending=True)
-
-
 
