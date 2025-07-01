@@ -4,9 +4,8 @@ from datetime import datetime, time
 from io import BytesIO
 import csv
 import os
-from .config import WORKTIME_FILE
+from config import WORKTIME_FILE
 import os
-WORKTIME_FILE = os.getenv("WORKTIME_FILE", "worktime.csv")
 
 
 START_TIME = time(8, 30)  # Стандартное время начала работы
