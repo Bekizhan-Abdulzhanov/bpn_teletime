@@ -36,8 +36,8 @@ def run_flask():
     serve(app, host="0.0.0.0", port=int(PORT))
 
 if __name__ == "__main__":
-    # Убираем все предыдущие вебхуки, чтобы не было конфликта getUpdates
-    bot.remove_webhook()
+    # Удаляем вебхук и сбрасываем все неотправленные обновления
+    bot.remove_webhook(drop_pending_updates=True)
 
     # Запускаем Flask в фоновом потоке
     threading.Thread(target=run_flask, daemon=True).start()
