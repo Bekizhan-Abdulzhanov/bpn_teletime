@@ -28,8 +28,9 @@ def get_all_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, newline='', encoding='utf-8') as f:
             for row in csv.reader(f):
-                # Ожидаем строки вида [id, username, status?]
-                users[row[0]] = row[1]
+                # Ожидаем строки вида [id, username, (опционально) статус]
+                if len(row) >= 2:
+                    users[row[0]] = row[1]
     return users
 
 def approve_user(user_id):
@@ -40,7 +41,8 @@ def approve_user(user_id):
             approved = set(line.strip() for line in f)
     approved.add(str(user_id))
     with open(AUTO_APPROVED_FILE, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(approved))
+        for uid in approved:
+            f.write(f"{uid}\n")
 
 def deny_user(user_id):
     """Убрать пользователя из авто-одобренных"""
@@ -50,7 +52,8 @@ def deny_user(user_id):
         approved = set(line.strip() for line in f)
     approved.discard(str(user_id))
     with open(AUTO_APPROVED_FILE, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(approved))
+        for uid in approved:
+            f.write(f"{uid}\n")
 
 def get_pending_users():
     """Вернуть {user_id: username} для пользователей в статусе 'pending'"""
@@ -58,7 +61,7 @@ def get_pending_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, newline='', encoding='utf-8') as f:
             for row in csv.reader(f):
-                # Предполагаем, что в третьем столбце хранится статус
+                # Предполагаем: [id, username, status]
                 if len(row) >= 3 and row[2] == 'pending':
                     pending[row[0]] = row[1]
     return pending
