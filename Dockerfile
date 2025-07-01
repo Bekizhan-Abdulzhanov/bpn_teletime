@@ -7,4 +7,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python", "bpn_teletime/main.py"]
+CMD ["python", "-m", "bpn_teletime.main"]
+
