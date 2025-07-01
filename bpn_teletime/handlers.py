@@ -13,13 +13,14 @@ from storage import (
     save_work_time,
     is_user_approved,
     get_all_users,
-    approve_user_by_id,
-    reject_user_by_id,
+    approve_user      as approve_user_by_id,
+    deny_user         as reject_user_by_id,
     get_pending_users,
     enable_auto_mode,
     disable_auto_mode,
     is_auto_enabled
 )
+
 from reports import generate_excel_report_by_months
 from config import WORKTIME_FILE
 
