@@ -4,11 +4,11 @@ from waitress import serve
 import threading
 import os
 
-from config import TOKEN, PORT
-from handlers import register_handlers
-from admin_handlers import register_admin_handlers
-from schedulers import setup_scheduler
-from notifier import setup_notifications
+from .config import TOKEN, PORT
+from .handlers import register_handlers
+from .admin_handlers import register_admin_handlers
+from .schedulers import setup_scheduler
+from .notifier import setup_notifications
 
 bot = TeleBot(TOKEN)
 app = Flask(__name__)
