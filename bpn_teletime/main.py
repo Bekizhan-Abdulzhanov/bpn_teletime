@@ -22,10 +22,10 @@ register_admin_handlers(bot)
 
 # --- Настройка и запуск планировщика ---
 scheduler = BackgroundScheduler()
-# Передаём в функции сам экземпляр планировщика и объект бота
 setup_scheduler(scheduler, bot)
 setup_notifications(scheduler, bot)
 scheduler.start()
+print("[SCHEDULER] Уведомления и ежедневные отчёты настроены.")
 
 # --- Простая HTTP-страница для проверки работоспособности ---
 @app.route("/")
@@ -33,14 +33,18 @@ def index():
     return "Bot is running!"
 
 def run_flask():
-    # PORT из .env может быть строкой, приводим к int
     serve(app, host="0.0.0.0", port=int(PORT))
 
 if __name__ == "__main__":
-    # Запускаем Flask в отдельном потоке
+    # Убираем все предыдущие вебхуки, чтобы не было конфликта getUpdates
+    bot.remove_webhook()
+
+    # Запускаем Flask в фоновом потоке
     threading.Thread(target=run_flask, daemon=True).start()
-    print("Бот и веб-сервер запущены.")
-    # Запускаем бота
+    print("Веб-сервер запущен на порту", PORT)
+
+    # Запускаем опрос Telegram
+    print("Запускаем polling бота...")
     bot.infinity_polling(skip_pending=True)
 
 
