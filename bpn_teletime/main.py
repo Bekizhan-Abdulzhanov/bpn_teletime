@@ -1,5 +1,6 @@
 import os
 import threading
+from zoneinfo import ZoneInfo
 
 from telebot import TeleBot
 from flask import Flask
@@ -12,22 +13,20 @@ from admin_handlers import register_admin_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
 
-# --- Инициализация бота и веб-сервера ---
 bot = TeleBot(TOKEN)
 app = Flask(__name__)
 
-# Регистрируем обработчики команд
+# Регистрируем хендлеры
 register_handlers(bot)
 register_admin_handlers(bot)
 
-# --- Настройка и запуск планировщика ---
-scheduler = BackgroundScheduler()
+# Создаём планировщик в часовом поясе Asia/Bishkek (UTC+6)
+scheduler = BackgroundScheduler(timezone=ZoneInfo("Asia/Bishkek"))
 setup_scheduler(scheduler, bot)
 setup_notifications(scheduler, bot)
 scheduler.start()
-print("[SCHEDULER] Уведомления и ежедневные отчёты настроены.")
+print("[SCHEDULER] Уведомления и ежедневные отчёты настроены (Asia/Bishkek).")
 
-# --- Простая HTTP-страница для проверки работоспособности ---
 @app.route("/")
 def index():
     return "Bot is running!"
@@ -36,15 +35,10 @@ def run_flask():
     serve(app, host="0.0.0.0", port=int(PORT))
 
 if __name__ == "__main__":
-    # Удаляем вебхук и сбрасываем все неотправленные обновления
-    bot.remove_webhook(drop_pending_updates=True)
-
-    # Запускаем Flask в фоновом потоке
+    bot.remove_webhook()
     threading.Thread(target=run_flask, daemon=True).start()
-    print("Веб-сервер запущен на порту", PORT)
-
-    # Запускаем опрос Telegram
-    print("Запускаем polling бота...")
+    print(f"Веб-сервер запущен на порту {PORT}")
+    print("Запускаем polling бота…")
     bot.infinity_polling(skip_pending=True)
 
 
