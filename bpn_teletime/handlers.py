@@ -20,20 +20,18 @@ from storage import (
     disable_auto_mode,
     is_auto_enabled
 )
-
 from reports import generate_excel_report_by_months
-from config import WORKTIME_FILE
 
-
+# Пользователи с автоматическим режимом
 AUTO_APPROVED_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
 }
-
 ALLOWED_AUTO_USERS = AUTO_APPROVED_USERS
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
+
 
 def show_menu(bot, message):
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -44,6 +42,7 @@ def show_menu(bot, message):
     )
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
 
+
 def register_handlers(bot):
     @bot.message_handler(commands=["start"])
     def start_command(message):
@@ -51,7 +50,9 @@ def register_handlers(bot):
         username = message.from_user.username or f"user_{user_id}"
 
         if is_user_approved(user_id) or user_id in AUTO_APPROVED_USERS:
-            save_work_time(user_id, username, "Пришел на работу")
+            # Записываем время прихода
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            save_work_time(user_id, "Пришел на работу", ts)
             bot.send_message(message.chat.id, "👋 Добро пожаловать! Отметка прихода сохранена.")
             show_menu(bot, message)
         else:
@@ -72,7 +73,7 @@ def register_handlers(bot):
                         return bot.send_message(message.chat.id, "✅ Вы уже зарегистрированы или ожидаете одобрения.")
 
         with open("users.csv", "a", encoding="utf-8") as f:
-            f.write(f"{user_id},{username},0\n")
+            f.write(f"{user_id},{username},pending\n")
 
         bot.send_message(message.chat.id, "📅 Заявка отправлена. Ожидайте одобрения администратора.")
 
@@ -134,14 +135,14 @@ def register_handlers(bot):
         if not is_user_approved(user_id) and user_id not in AUTO_APPROVED_USERS:
             return bot.reply_to(message, "❌ Вы не одобрены.")
 
-        user = message.from_user
-        action = {
+        action_map = {
             "🍽 Вышел на обед": "Вышел на обед",
             "🍽 Вернулся с обеда": "Вернулся с обеда",
             "🏁 Ушел с работы": "Ушел с работы",
-        }[message.text]
-
-        save_work_time(user.id, user.username, action)
+        }
+        action = action_map[message.text]
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        save_work_time(user_id, action, ts)
         bot.reply_to(message, f"✅ Отмечено: {action}")
 
     @bot.message_handler(commands=["all_reports"])
@@ -170,7 +171,7 @@ def register_handlers(bot):
         if not pending:
             return bot.send_message(message.chat.id, "📭 Нет заявок на одобрение.")
 
-        for user_id, username in pending:
+        for user_id, username in pending.items():
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{user_id}"))
             bot.send_message(message.chat.id, f"👤 @{username} (ID: {user_id})", reply_markup=markup)
@@ -190,4 +191,3 @@ def register_handlers(bot):
             return bot.send_message(message.chat.id, "⛔ У вас нет доступа к авто-режиму.")
         disable_auto_mode(user_id)
         bot.send_message(message.chat.id, "🛑 Автоматический режим выключен.")
-
