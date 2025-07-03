@@ -14,7 +14,7 @@ from storage import (
     save_work_time,
     is_user_approved,
     get_all_users,
-    set_user_status   as approve_user_by_id,
+    set_user_status,
     deny_user         as reject_user_by_id,
     get_pending_users,
     enable_auto_mode,
@@ -23,7 +23,7 @@ from storage import (
 )
 from reports import generate_excel_report_by_months
 
-# Автоодобренные пользователи
+# Пользователи с автоматическим режимом
 AUTO_APPROVED_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
@@ -41,6 +41,7 @@ def show_menu(bot, message):
         KeyboardButton("🏁 Ушел с работы"),
     )
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
+
 
 def register_handlers(bot):
     @bot.message_handler(commands=["start"])
@@ -64,14 +65,13 @@ def register_handlers(bot):
         if user_id in AUTO_APPROVED_USERS:
             return bot.send_message(message.chat.id, "✅ Вы уже авторизованы как привилегированный пользователь.")
 
-        # Проверяем файл через storage.USERS_FILE
         if os.path.exists(USERS_FILE):
             with open(USERS_FILE, "r", encoding="utf-8") as f:
                 for row in csv.reader(f):
                     if row and row[0] == str(user_id):
                         return bot.send_message(message.chat.id, "✅ Вы уже зарегистрированы или ожидаете одобрения.")
 
-        # Записываем в USERS_FILE
+        # Записываем заявку в users.csv
         with open(USERS_FILE, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([user_id, username, "pending"])
@@ -95,7 +95,8 @@ def register_handlers(bot):
             return bot.answer_callback_query(call.id, "⛔ Только для админов.")
 
         user_id = int(call.data.replace("approve_", ""))
-        approve_user_by_id(user_id)  # set status to 'approved'
+        # Изменяем статус пользователя на approved
+        set_user_status(user_id, "approved")
         bot.send_message(call.message.chat.id, f"✅ Пользователь {user_id} одобрен.")
         try:
             bot.send_message(user_id, "✅ Ваша заявка одобрена! Вы можете пользоваться ботом.")
@@ -109,11 +110,15 @@ def register_handlers(bot):
 
         user_id = int(call.data.replace("reject_", ""))
         reject_user_by_id(user_id)
+        # Можно также менять статус в users.csv
+        if os.path.exists(USERS_FILE):
+            set_user_status(user_id, "rejected")
         bot.send_message(call.message.chat.id, f"🚫 Пользователь {user_id} был отклонён.")
         try:
             bot.send_message(user_id, "🚫 Ваша заявка на регистрацию была отклонена.")
         except Exception as e:
             print(f"[WARN] Не удалось отправить сообщение пользователю {user_id}: {e}")
+
 
     @bot.message_handler(commands=["send_excel_report"])
     def send_excel_report(message):
