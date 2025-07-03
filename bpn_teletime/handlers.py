@@ -22,6 +22,11 @@ from storage import (
     is_auto_enabled
 )
 from reports import generate_excel_report_by_months
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+TS_ZONE = ZoneInfo("Asia/Bishkek")
+
 
 # Пользователи с автоматическим режимом
 AUTO_APPROVED_USERS = {
@@ -147,7 +152,7 @@ def register_handlers(bot):
             "🏁 Ушел с работы": "Ушел с работы",
         }
         action = action_map[message.text]
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ts = datetime.now(TS_ZONE).strftime("%Y-%m-%d %H:%M:%S")
         save_work_time(user_id, action, ts)
         bot.reply_to(message, f"✅ Отмечено: {action}")
 

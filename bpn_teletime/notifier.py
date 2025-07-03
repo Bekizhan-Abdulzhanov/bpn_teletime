@@ -4,6 +4,10 @@ from config import ADMIN_IDS
 from storage import get_all_users
 from reports import generate_excel_report_by_months
 from telebot.types import InputFile
+from zoneinfo import ZoneInfo
+
+TS_ZONE = ZoneInfo("Asia/Bishkek")
+
 
 REMINDERS = [
     ("Вы уже в пути на работу? Не забудьте отметить!", 8, 28),

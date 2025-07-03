@@ -4,7 +4,9 @@ from reports import generate_excel_report_by_months
 from datetime import datetime
 from telebot.types import InputFile
 from config import ADMIN_IDS
+from zoneinfo import ZoneInfo
 
+TS_ZONE = ZoneInfo("Asia/Bishkek")
 AUTO_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
