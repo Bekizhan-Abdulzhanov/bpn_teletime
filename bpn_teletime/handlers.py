@@ -10,6 +10,7 @@ from telebot.types import (
 )
 from config import ADMIN_IDS
 from storage import (
+    USERS_FILE,
     save_work_time,
     is_user_approved,
     get_all_users,
@@ -22,7 +23,7 @@ from storage import (
 )
 from reports import generate_excel_report_by_months
 
-# Пользователи с автоматическим режимом
+# Автоодобренные пользователи
 AUTO_APPROVED_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
@@ -63,14 +64,17 @@ def register_handlers(bot):
         if user_id in AUTO_APPROVED_USERS:
             return bot.send_message(message.chat.id, "✅ Вы уже авторизованы как привилегированный пользователь.")
 
-        if os.path.exists("users.csv"):
-            with open("users.csv", "r", encoding="utf-8") as f:
+        # Проверяем файл через storage.USERS_FILE
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
                 for row in csv.reader(f):
                     if row and row[0] == str(user_id):
                         return bot.send_message(message.chat.id, "✅ Вы уже зарегистрированы или ожидаете одобрения.")
 
-        with open("users.csv", "a", encoding="utf-8") as f:
-            f.write(f"{user_id},{username},pending\n")
+        # Записываем в USERS_FILE
+        with open(USERS_FILE, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([user_id, username, "pending"])
 
         bot.send_message(message.chat.id, "📅 Заявка отправлена. Ожидайте одобрения администратора.")
 
@@ -91,7 +95,7 @@ def register_handlers(bot):
             return bot.answer_callback_query(call.id, "⛔ Только для админов.")
 
         user_id = int(call.data.replace("approve_", ""))
-        approve_user_by_id(user_id)  # теперь ставит status="approved" в users.csv
+        approve_user_by_id(user_id)  # set status to 'approved'
         bot.send_message(call.message.chat.id, f"✅ Пользователь {user_id} одобрен.")
         try:
             bot.send_message(user_id, "✅ Ваша заявка одобрена! Вы можете пользоваться ботом.")
