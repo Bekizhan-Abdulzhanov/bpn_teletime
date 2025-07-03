@@ -13,7 +13,7 @@ from storage import (
     save_work_time,
     is_user_approved,
     get_all_users,
-    approve_user      as approve_user_by_id,
+    set_user_status   as approve_user_by_id,
     deny_user         as reject_user_by_id,
     get_pending_users,
     enable_auto_mode,
@@ -32,7 +32,6 @@ ALLOWED_AUTO_USERS = AUTO_APPROVED_USERS
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-
 def show_menu(bot, message):
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(
@@ -42,7 +41,6 @@ def show_menu(bot, message):
     )
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
 
-
 def register_handlers(bot):
     @bot.message_handler(commands=["start"])
     def start_command(message):
@@ -50,7 +48,6 @@ def register_handlers(bot):
         username = message.from_user.username or f"user_{user_id}"
 
         if is_user_approved(user_id) or user_id in AUTO_APPROVED_USERS:
-            # Записываем время прихода
             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             save_work_time(user_id, "Пришел на работу", ts)
             bot.send_message(message.chat.id, "👋 Добро пожаловать! Отметка прихода сохранена.")
@@ -94,7 +91,7 @@ def register_handlers(bot):
             return bot.answer_callback_query(call.id, "⛔ Только для админов.")
 
         user_id = int(call.data.replace("approve_", ""))
-        approve_user_by_id(user_id)
+        approve_user_by_id(user_id)  # теперь ставит status="approved" в users.csv
         bot.send_message(call.message.chat.id, f"✅ Пользователь {user_id} одобрен.")
         try:
             bot.send_message(user_id, "✅ Ваша заявка одобрена! Вы можете пользоваться ботом.")
