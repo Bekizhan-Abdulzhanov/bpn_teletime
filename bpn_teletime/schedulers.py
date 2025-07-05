@@ -5,8 +5,11 @@ from datetime import datetime
 from telebot.types import InputFile
 from config import ADMIN_IDS
 from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
+from apscheduler.schedulers.background import BackgroundScheduler
 
 TS_ZONE = ZoneInfo("Asia/Bishkek")
+scheduler = BackgroundScheduler(timezone=TS_ZONE)
 AUTO_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
