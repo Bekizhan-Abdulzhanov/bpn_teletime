@@ -1,23 +1,24 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from telebot.types import InputFile
 
-from storage import save_work_time, get_all_users, is_auto_enabled
+from storage import save_work_time, is_auto_enabled
 from reports import generate_excel_report_by_months
 from config import ADMIN_IDS
 
-# Часовая зона Бишкека (UTC+6)
+# Часовая зона Бишкек (UTC+6)
 TS_ZONE = ZoneInfo("Asia/Bishkek")
 
-# Список пользователей, участвующих в авто-режиме
+# Пользователи, имеющие право на авто-режим
 AUTO_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
 }
 
-# Расписание автоматических меток
+# Расписание автоматических меток (будни)
 SCHEDULE_ACTIONS = [
     ("mon,wed", 8, 29, "Пришел на работу"),
     ("mon,wed", 12,  0, "Вышел на обед"),
@@ -33,60 +34,59 @@ SCHEDULE_ACTIONS = [
     ("fri",    17, 30, "Ушел с работы"),
 ]
 
+
+def auto_mark_all_users(action: str):
+    """
+    Сохраняет метку для каждого пользователя из AUTO_USERS,
+    если авто-режим включён.
+    """
+    timestamp = datetime.now(TS_ZONE).strftime("%Y-%m-%d %H:%M:%S")
+    for uid in AUTO_USERS:
+        if is_auto_enabled(uid):
+            save_work_time(uid, action, timestamp)
+
+
+def send_monthly_reports(bot):
+    """
+    Отправляет всем администраторам Excel-отчёты за прошлый месяц.
+    """
+    month_str = datetime.now(TS_ZONE).strftime("%Y-%m")
+    for admin_id in ADMIN_IDS:
+        bot.send_message(admin_id, f"📊 Ежемесячные отчёты за {month_str}:")
+        for uid, username in AUTO_USERS.items():
+            report_buf = generate_excel_report_by_months(uid, username)
+            if report_buf:
+                filename = f"Report_{username}_{month_str}.xlsx"
+                bot.send_document(admin_id, InputFile(report_buf, filename))
+            else:
+                bot.send_message(admin_id, f"⚠️ Нет данных для {username}.")
+
+
 def setup_scheduler(scheduler: BackgroundScheduler, bot):
-    # Автоматические ежедневные метки (будни)
-    for uid, username in AUTO_USERS.items():
-        if not is_auto_enabled(uid):
-            continue
-        for dow, hour, minute, action in SCHEDULE_ACTIONS:
-            scheduler.add_job(
-                save_work_time,
-                trigger="cron",
-                day_of_week=dow,
-                hour=hour,
-                minute=minute,
-                timezone=TS_ZONE,
-                args=[uid, action, datetime.now(TS_ZONE).strftime("%Y-%m-%d %H:%M:%S")],
-                id=f"auto_{uid}_{action.replace(' ', '_')}"
-            )
-    
-    # Ежемесячные отчёты администраторам
+    """
+    Настраивает задачи APScheduler:
+    1) Автоматические метки по расписанию для AUTO_USERS.
+    2) Ежемесячная рассылка Excel-отчётов 29 и 30 числа в 08:30.
+    """
+    # Удаляем старые задачи, чтобы избежать дублирования
+    scheduler.remove_all_jobs()
+
+    # 1) Автоматические ежедневные метки
+    for dow, hour, minute, action in SCHEDULE_ACTIONS:
+        scheduler.add_job(
+            auto_mark_all_users,
+            trigger=CronTrigger(day_of_week=dow, hour=hour, minute=minute, timezone=TS_ZONE),
+            args=[action],
+            id=f"auto_{action.replace(' ', '_')}"
+        )
+
+    # 2) Ежемесячная рассылка 29 и 30 числа в 08:30
     scheduler.add_job(
-        send_monthly_reports_to_admins,
-        trigger="cron",
-        day="29,30",
-        month="1-12",
-        hour=8,
-        minute=30,
-        timezone=TS_ZONE,
+        send_monthly_reports,
+        trigger=CronTrigger(day="29,30", hour=8, minute=30, timezone=TS_ZONE),
         args=[bot],
-        id="send_monthly_reports_default"
-    )
-    scheduler.add_job(
-        send_monthly_reports_to_admins,
-        trigger="cron",
-        day="27",
-        month="2",
-        hour=8,
-        minute=30,
-        timezone=TS_ZONE,
-        args=[bot],
-        id="send_monthly_reports_feb"
+        id="monthly_reports"
     )
 
-
-def send_monthly_reports_to_admins(bot):
-    month_name = datetime.now(TS_ZONE).strftime('%B')
-    users = get_all_users()
-    for admin in ADMIN_IDS:
-        bot.send_message(admin, f"Ежемесячные отчёты за {month_name}:")
-        for uid, username in users.items():
-            try:
-                report = generate_excel_report_by_months(int(uid), username)
-                if report:
-                    fn = f"Отчет_{username}_{month_name}.xlsx"
-                    bot.send_document(admin, InputFile(report, fn))
-                else:
-                    bot.send_message(admin, f"⚠️ Нет данных для {username}.")
-            except Exception as e:
-                bot.send_message(admin, f"❌ Ошибка для {username}: {e}")
+    scheduler.start()
+    print(f"[{datetime.now(TS_ZONE)}] [SCHEDULER] Авто-режим и рассылка настроены (Asia/Bishkek)")
