@@ -77,7 +77,7 @@ def setup_scheduler(scheduler: BackgroundScheduler, bot):
             auto_mark_all_users,
             trigger=CronTrigger(day_of_week=dow, hour=hour, minute=minute, timezone=TS_ZONE),
             args=[action],
-            id=f"auto_{action.replace(' ', '_')}"
+            id=f"auto_{dow}_{action.replace(' ', '_')}"
         )
 
     # 2) Ежемесячная рассылка 29 и 30 числа в 08:30
