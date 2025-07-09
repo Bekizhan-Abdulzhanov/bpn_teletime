@@ -32,7 +32,7 @@ register_admin_handlers(bot)
 scheduler = BackgroundScheduler(timezone=TS_ZONE)
 setup_scheduler(scheduler, bot)
 setup_notifications(scheduler, bot)
-scheduler.start()
+scheduler.start() 
 print(f"[{datetime.now(TS_ZONE)}] [SCHEDULER] Запущен в {TS_ZONE}")
 
 @app.route("/")

@@ -88,5 +88,5 @@ def setup_scheduler(scheduler: BackgroundScheduler, bot):
         id="monthly_reports"
     )
 
-    scheduler.start()
+        # Не вызываем scheduler.start() здесь, он будет запущен в main.py после всех настроек
     print(f"[{datetime.now(TS_ZONE)}] [SCHEDULER] Авто-режим и рассылка настроены (Asia/Bishkek)")
