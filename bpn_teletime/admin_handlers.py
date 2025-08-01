@@ -3,11 +3,11 @@ from datetime import datetime
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 from config import ADMIN_IDS
-from storage import get_all_users, save_work_time
+from storage import get_all_users, update_work_time_entry
 from reports import generate_excel_report_by_months
 
 # Временное хранилище для выбора сотрудника при изменении времени
-pending_time_update = {}
+pending_time_update: dict[int, int] = {}
 
 def register_admin_handlers(bot: TeleBot):
     @bot.message_handler(commands=['admin', 'menu'])
@@ -40,10 +40,14 @@ def register_admin_handlers(bot: TeleBot):
             return bot.answer_callback_query(call.id, "⛔ Только администраторам.")
         uid = int(call.data.split('_')[-1])
         pending_time_update[call.message.chat.id] = uid
-        bot.send_message(call.message.chat.id,
-                         f"Выбран сотрудник {uid}. Теперь введите действие и время в формате:\n"
-                         "действие YYYY-MM-DD HH:MM:SS\n"
-                         "Например: Пришел на работу 2025-07-04 08:30:00")
+        bot.send_message(
+            call.message.chat.id,
+            "В формате:\n"
+            "`<действие> YYYY-MM-DD HH:MM:SS`\n\n"
+            "Например:\n"
+            "`Пришел на работу 2025-07-04 08:30:00`",
+            parse_mode='Markdown'
+        )
         bot.answer_callback_query(call.id)
 
     @bot.callback_query_handler(func=lambda call: call.data == 'send_all_reports')
@@ -54,23 +58,45 @@ def register_admin_handlers(bot: TeleBot):
             buf = generate_excel_report_by_months(uid, uname)
             if buf:
                 filename = f"Report_{uname}_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
-                bot.send_document(call.message.chat.id, InputFile(buf, filename), caption=f"Отчёт {uname}")
+                bot.send_document(call.message.chat.id, InputFile(buf, filename),
+                                  caption=f"Отчёт {uname}")
         bot.answer_callback_query(call.id, "✅ Отчёты отправлены всем.")
 
     @bot.message_handler(func=lambda message: message.chat.id in pending_time_update)
     def process_time_change(message):
         chat_id = message.chat.id
-        uid = pending_time_update.get(chat_id)
-        text = message.text
+        uid = pending_time_update.pop(chat_id)
+        text = message.text.strip()
         try:
-            action, ts = text.split(' ', 1)
-            # проверка формата даты-времени
-            datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
-            save_work_time(uid, action, ts)
-            bot.reply_to(message, f"✅ Отметка добавлена: {action} для пользователя {uid} в {ts}")
-        except Exception:
-            bot.reply_to(message, "❌ Ошибка формата. Используйте: действие YYYY-MM-DD HH:MM:SS")
-        finally:
-            pending_time_update.pop(chat_id, None)
+            # Разбираем действие, дату и время
+            # rsplit на две части: до последних двух пробелов
+            action, date_str, time_str = text.rsplit(' ', 2)
+            # Проверяем корректность даты и времени
+            datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+            # Пытаемся обновить запись
+            success = update_work_time_entry(str(uid), date_str, action, time_str)
+            if success:
+                bot.reply_to(
+                    message,
+                    f"✅ Для пользователя `{uid}` обновлено:\n"
+                    f"*{action}* → `{date_str} {time_str}`",
+                    parse_mode='Markdown'
+                )
+            else:
+                bot.reply_to(
+                    message,
+                    "❌ Запись не найдена или не удалось обновить. "
+                    "Проверьте, что указали существующее действие и дату."
+                )
+        except ValueError:
+            bot.reply_to(
+                message,
+                "❌ Неверный формат. Используйте:\n"
+                "`<действие> YYYY-MM-DD HH:MM:SS`",
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка: {e}")
+
 
 

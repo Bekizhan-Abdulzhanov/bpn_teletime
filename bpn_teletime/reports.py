@@ -7,24 +7,21 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 
-from storage import WORKTIME_FILE  # Путь к CSV из storage.py
+from storage import WORKTIME_FILE  
 
-# Таймзона Бишкек
+
 TS_ZONE = ZoneInfo("Asia/Bishkek")
-# Время начала рабочего дня для подсчёта опозданий
+
 START_TIME = time(8, 30)
 
 
 def generate_excel_report_by_months(user_id, username, today_only=False):
-    """
-    Формирует Excel-отчёт по записям work_time.csv.
-    Если today_only=True, включает только записи за текущую дату.
-    """
+
     if not os.path.exists(WORKTIME_FILE):
         print(f"[ERROR] Файл {WORKTIME_FILE} не найден.")
         return None
 
-    # Считываем все записи и группируем по месяцам и датам
+
     data_by_month = {m: {} for m in range(1, 13)}
     with open(WORKTIME_FILE, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
@@ -40,7 +37,9 @@ def generate_excel_report_by_months(user_id, username, today_only=False):
                 continue
             d = dt.date()
             m = d.month
-            rec = data_by_month[m].setdefault(d, {"start": None, "lunch_out": None, "lunch_in": None, "end": None})
+            rec = data_by_month[m].setdefault(
+                d, {"start": None, "lunch_out": None, "lunch_in": None, "end": None}
+            )
             if action == "Пришел на работу":
                 rec["start"] = dt
             elif action == "Вышел на обед":
@@ -50,14 +49,16 @@ def generate_excel_report_by_months(user_id, username, today_only=False):
             elif action == "Ушел с работы":
                 rec["end"] = dt
 
-    # Оставляем только сегодня при необходимости
+
     if today_only:
         today = datetime.now(TS_ZONE).date()
         m = today.month
-        rec = data_by_month.get(m, {}).get(today, {"start": None, "lunch_out": None, "lunch_in": None, "end": None})
+        rec = data_by_month.get(m, {}).get(
+            today, {"start": None, "lunch_out": None, "lunch_in": None, "end": None}
+        )
         data_by_month = {m: {today: rec}}
 
-    # Создаём Excel-книгу
+
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -66,8 +67,14 @@ def generate_excel_report_by_months(user_id, username, today_only=False):
 
     for month in range(1, 13):
         records = data_by_month.get(month, {})
+
         ws = wb.create_sheet(title=datetime(2025, month, 1).strftime('%B'))
+
+
         ws.append(["Дата", "Начало", "Обед-выход", "Обед-возврат", "Конец", "Часы", "Опоздание"])
+
+
+        month_minutes = 0
 
         for date_key, times in sorted(records.items()):
             st = times["start"]
@@ -79,12 +86,11 @@ def generate_excel_report_by_months(user_id, username, today_only=False):
             late_flag = ""
 
             if st:
-                # Определяем рабочие сегменты
-                # Утренний сегмент: от прихода до обеда (или до now)
+
                 lo_eff = lo or now
                 morning = max(int((lo_eff - st).total_seconds() // 60), 0)
 
-                # Послеобеденный сегмент: от обеда до ухода (или до now)
+
                 if li:
                     en_eff = en or now
                     afternoon = max(int((en_eff - li).total_seconds() // 60), 0)
@@ -94,7 +100,7 @@ def generate_excel_report_by_months(user_id, username, today_only=False):
                 minutes = morning + afternoon
                 total_days += 1
 
-                # Опоздание
+
                 if st.time() > START_TIME:
                     late_flag = "✅"
                     total_late += 1
@@ -102,8 +108,9 @@ def generate_excel_report_by_months(user_id, username, today_only=False):
                 total_absent += 1
 
             total_minutes += minutes
-            hours = round(minutes / 60, 2) if minutes else ''
+            month_minutes += minutes
 
+            hours = round(minutes / 60, 2) if minutes else ''
             ws.append([
                 date_key.strftime('%Y-%m-%d'),
                 st.strftime('%H:%M:%S') if st else '',
@@ -114,27 +121,37 @@ def generate_excel_report_by_months(user_id, username, today_only=False):
                 late_flag
             ])
 
-        # Стилизация
+
+        ws.append([])
+
+        month_hours = round(month_minutes / 60, 2)
+        ws.append(['Итого часов за месяц:', month_hours])
+
+
         for col in ws.columns:
             for cell in col:
                 cell.border = Border(
-                    left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
                 )
                 cell.alignment = Alignment(horizontal='center')
                 if cell.row == 1:
                     cell.font = Font(bold=True)
 
-    # Итоги
+
     total_hours = round(total_minutes / 60, 2)
     summary = wb.create_sheet(title="Итоги")
     summary.append(["Пользователь", "ID", "Всего часов", "Рабочих дней", "Опозданий", "Пропусков"])
     summary.append([username, user_id, total_hours, total_days, total_late, total_absent])
 
-    # Норма
+
     norm = wb.create_sheet(title="Норма 2025")
     norm.append(["Месяц", "Норма часов"])
     for m in range(1, 13):
         norm.append([datetime(2025, m, 1).strftime('%B'), ""])
+
 
     buf = BytesIO()
     wb.save(buf)
