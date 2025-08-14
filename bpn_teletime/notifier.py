@@ -13,7 +13,7 @@ REMINDERS = [
     ("Вы уже в пути на работу? Не забудьте отметить!", 8, 28),
     ("Приятного аппетита! Не забудьте отметить!", 11, 58),
     ("Желаю вам продуктивной работы! Не забудьте отметить!", 13, 58),
-    ("✅ Вы сегодня отлично поработали! Не забудьте отметить!", 17, 28),
+    ("✅ Вы сегодня отлично поработали! Не забудьте отметить!", 16, 45),
 ]
 
 def setup_notifications(scheduler, bot):
@@ -47,7 +47,7 @@ def setup_notifications(scheduler, bot):
 
     scheduler.add_job(
         daily_report,
-        CronTrigger(day_of_week='mon-fri', hour=18, minute=0)
+        CronTrigger(day_of_week='mon-fri', hour=17, minute=40)
     )
 
     print("[SCHEDULER] Уведомления и ежедневные отчёты настроены.")
