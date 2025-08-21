@@ -25,10 +25,10 @@ from storage import (
 )
 from reports import generate_excel_report_by_months
 
-# Таймзона Бишкек
+
 TS_ZONE = ZoneInfo("Asia/Bishkek")
 
-# Пользователи с автоматическим режимом
+
 AUTO_APPROVED_USERS = {
     378268765: "ErlanNasiev",
     557174721: "BekizhanAbdulzhanov",
