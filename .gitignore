@@ -5,6 +5,10 @@ __pycache__/
 *.pyd
 .venv/
 
+data/*.csv
+data/*.xlsx
+data/*.json
+
 
 
 # Исключаем кэшированные файлы Python

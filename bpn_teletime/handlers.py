@@ -10,7 +10,14 @@ from telebot.types import (
     KeyboardButton,
     InputFile,
 )
-from config import ADMIN_IDS
+
+from config import (
+    ADMIN_IDS,
+    TIMEZONE,
+    AUTO_APPROVED_USERS,
+    EMPLOYEE_USERS,
+    ALLOWED_AUTO_USERS,
+)
 from storage import (
     USERS_FILE,
     save_work_time,
@@ -21,19 +28,14 @@ from storage import (
     get_pending_users,
     enable_auto_mode,
     disable_auto_mode,
-    is_auto_enabled
+    is_auto_enabled,
 )
 from reports import generate_excel_report_by_months
 
+TS_ZONE = ZoneInfo(TIMEZONE)
 
-TS_ZONE = ZoneInfo("Asia/Bishkek")
-
-
-AUTO_APPROVED_USERS = {
-    378268765: "ErlanNasiev",
-    557174721: "BekizhanAbdulzhanov",
-}
-ALLOWED_AUTO_USERS = AUTO_APPROVED_USERS
+# Доверенные (full + lunch_only)
+TRUSTED_USERS: dict[int, str] = ALLOWED_AUTO_USERS.copy()
 
 
 def is_admin(user_id: int) -> bool:
@@ -56,7 +58,7 @@ def register_handlers(bot: TeleBot):
         user_id = message.from_user.id
         username = message.from_user.username or f"user_{user_id}"
 
-        if is_user_approved(user_id) or user_id in AUTO_APPROVED_USERS:
+        if is_user_approved(user_id) or user_id in TRUSTED_USERS:
             ts = datetime.now(TS_ZONE).strftime("%Y-%m-%d %H:%M:%S")
             save_work_time(user_id, "Пришел на работу", ts)
             bot.send_message(message.chat.id, "👋 Добро пожаловать! Отметка прихода сохранена.")
@@ -69,24 +71,20 @@ def register_handlers(bot: TeleBot):
         user_id = message.from_user.id
         username = message.from_user.username or f"user_{user_id}"
 
-        if user_id in AUTO_APPROVED_USERS:
-            return bot.send_message(message.chat.id, "✅ Вы уже авторизованы как привилегированный пользователь.")
+        if user_id in TRUSTED_USERS:
+            return bot.send_message(message.chat.id, "✅ Вы уже авторизованы как доверенный пользователь.")
 
-        # Проверяем наличие заявки в users.csv
         if os.path.exists(USERS_FILE):
             with open(USERS_FILE, "r", encoding="utf-8") as f:
                 for row in csv.reader(f):
                     if row and row[0] == str(user_id):
                         return bot.send_message(message.chat.id, "✅ Вы уже зарегистрированы или ожидаете одобрения.")
 
-        # Записываем заявку
         with open(USERS_FILE, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow([user_id, username, "pending"]);
+            csv.writer(f).writerow([user_id, username, "pending"])
 
         bot.send_message(message.chat.id, "📅 Заявка отправлена. Ожидайте одобрения администратора.")
 
-        # Уведомляем админов
         markup = InlineKeyboardMarkup()
         markup.add(
             InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{user_id}"),
@@ -102,7 +100,6 @@ def register_handlers(bot: TeleBot):
     def handle_approve_user(call):
         if not is_admin(call.from_user.id):
             return bot.answer_callback_query(call.id, "⛔ Только для админов.")
-
         user_id = int(call.data.split("_")[1])
         set_user_status(user_id, "approved")
         bot.send_message(call.message.chat.id, f"✅ Пользователь {user_id} одобрен.")
@@ -115,7 +112,6 @@ def register_handlers(bot: TeleBot):
     def handle_reject_user(call):
         if not is_admin(call.from_user.id):
             return bot.answer_callback_query(call.id, "⛔ Только для админов.")
-
         user_id = int(call.data.split("_")[1])
         reject_user_by_id(user_id)
         set_user_status(user_id, "rejected")
@@ -125,12 +121,11 @@ def register_handlers(bot: TeleBot):
         except Exception as e:
             print(f"[WARN] Не удалось отправить сообщение пользователю {user_id}: {e}")
 
-    @bot.message_handler(commands=["send_excel_report"])
+    @bot.message_handler(commands=["t"])
     def send_excel_report(message):
         user_id = message.from_user.id
-        if not (is_user_approved(user_id) or user_id in AUTO_APPROVED_USERS):
+        if not (is_user_approved(user_id) or user_id in TRUSTED_USERS):
             return bot.reply_to(message, "❌ Вы не одобрены.")
-
         username = message.from_user.username or f"user_{user_id}"
         buf = generate_excel_report_by_months(user_id, username, today_only=True)
         if buf:
@@ -142,9 +137,8 @@ def register_handlers(bot: TeleBot):
     @bot.message_handler(func=lambda m: m.text in ["🍽 Вышел на обед", "🍽 Вернулся с обеда", "🏁 Ушел с работы"])
     def handle_actions(message):
         user_id = message.from_user.id
-        if not (is_user_approved(user_id) or user_id in AUTO_APPROVED_USERS):
+        if not (is_user_approved(user_id) or user_id in TRUSTED_USERS):
             return bot.reply_to(message, "❌ Вы не одобрены.")
-
         action_map = {
             "🍽 Вышел на обед": "Вышел на обед",
             "🍽 Вернулся с обеда": "Вернулся с обеда",
@@ -159,7 +153,6 @@ def register_handlers(bot: TeleBot):
     def all_reports(message):
         if not is_admin(message.from_user.id):
             return bot.reply_to(message, "⛔ Только для администраторов.")
-
         for uid, uname in get_all_users().items():
             buf = generate_excel_report_by_months(int(uid), uname)
             if buf:
@@ -176,28 +169,30 @@ def register_handlers(bot: TeleBot):
     def show_pending_users(message):
         if not is_admin(message.from_user.id):
             return bot.reply_to(message, "⛔ Только для администраторов.")
-
         pending = get_pending_users()
         if not pending:
             return bot.send_message(message.chat.id, "📭 Нет заявок на одобрение.")
-
         for uid, uname in pending.items():
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{uid}"))
             bot.send_message(message.chat.id, f"👤 @{uname} (ID: {uid})", reply_markup=markup)
 
+    # Авто-режим: включение/выключение для обеих групп
     @bot.message_handler(commands=["авторежим_вкл"])
     def auto_mode_on(message):
         uid = message.from_user.id
-        if uid not in ALLOWED_AUTO_USERS:
+        if uid not in TRUSTED_USERS:
             return bot.send_message(message.chat.id, "⛔ У вас нет доступа к авто-режиму.")
         enable_auto_mode(uid)
-        bot.send_message(message.chat.id, "✅ Автомаркер включён. Бот будет отмечать вас сам.")
+        if uid in EMPLOYEE_USERS:
+            bot.send_message(message.chat.id, "✅ Авто-режим включён. Для вас автоматически отмечается только обед (13:00–14:00).")
+        else:
+            bot.send_message(message.chat.id, "✅ Авто-режим включён. (Сейчас автоматически отмечается обед 13:00–14:00.)")
 
     @bot.message_handler(commands=["авторежим_выкл"])
     def auto_mode_off(message):
         uid = message.from_user.id
-        if uid not in ALLOWED_AUTO_USERS:
+        if uid not in TRUSTED_USERS:
             return bot.send_message(message.chat.id, "⛔ У вас нет доступа к авто-режиму.")
         disable_auto_mode(uid)
         bot.send_message(message.chat.id, "🛑 Автомаркер выключен.")

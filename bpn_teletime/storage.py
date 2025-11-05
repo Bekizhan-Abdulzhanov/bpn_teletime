@@ -8,14 +8,20 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Пути к CSV-файлам
 USERS_FILE = os.path.join(BASE_DIR, os.environ.get('USERS_FILE', 'users.csv'))
 WORKTIME_FILE = os.path.join(BASE_DIR, os.environ.get('WORKTIME_FILE', 'work_time.csv'))
-AUTO_APPROVED_FILE = os.path.join(BASE_DIR, os.environ.get('AUTO_APPROVED_FILE', 'auto_approved_users.csv'))
 
-def save_work_time(user_id: str, event: str, timestamp: str) -> None:
+# Файл со списком пользователей, у кого ВКЛЮЧЁН авто-режим
+AUTO_ENABLED_FILE = os.path.join(BASE_DIR, os.environ.get('AUTO_ENABLED_FILE', 'auto_enabled.csv'))
+
+
+# ---------- Work time ----------
+def save_work_time(user_id: str | int, event: str, timestamp: str) -> None:
     """Добавить новую запись в work_time.csv."""
     with open(WORKTIME_FILE, 'a', newline='', encoding='utf-8') as f:
-        csv.writer(f).writerow([user_id, event, timestamp])
+        csv.writer(f).writerow([str(user_id), event, timestamp])
 
-def is_user_approved(user_id: str) -> bool:
+
+# ---------- Users approvals ----------
+def is_user_approved(user_id: str | int) -> bool:
     """Проверить, что пользователь есть в users.csv и имеет статус 'approved'."""
     if not os.path.exists(USERS_FILE):
         return False
@@ -25,11 +31,9 @@ def is_user_approved(user_id: str) -> bool:
                 return True
     return False
 
+
 def get_all_users() -> dict[str, str]:
-    """
-    Вернуть словарь одобренных пользователей: {user_id: username}.
-    Читает users.csv, ищет статус 'approved'.
-    """
+    """Вернуть словарь одобренных пользователей: {user_id: username}."""
     users: dict[str, str] = {}
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, newline='', encoding='utf-8') as f:
@@ -38,8 +42,9 @@ def get_all_users() -> dict[str, str]:
                     users[row[0]] = row[1]
     return users
 
+
 def get_pending_users() -> dict[str, str]:
-    """Вернуть словарь пользователей в статусе 'pending' из users.csv."""
+    """Словарь пользователей в статусе 'pending' из users.csv."""
     pending: dict[str, str] = {}
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, newline='', encoding='utf-8') as f:
@@ -48,14 +53,12 @@ def get_pending_users() -> dict[str, str]:
                     pending[row[0]] = row[1]
     return pending
 
-def set_user_status(user_id: str, status: str) -> None:
-    """
-    Обновить статус пользователя (approved/pending) в третьей колонке users.csv.
-    Если записи нет — ничего не делает.
-    """
+
+def set_user_status(user_id: str | int, status: str) -> None:
+    """Обновить статус пользователя (approved/pending/rejected) в users.csv."""
     if not os.path.exists(USERS_FILE):
         return
-    rows = []
+    rows: list[list[str]] = []
     with open(USERS_FILE, newline='', encoding='utf-8') as rf:
         rows = [row for row in csv.reader(rf)]
     with open(USERS_FILE, 'w', newline='', encoding='utf-8') as wf:
@@ -67,40 +70,42 @@ def set_user_status(user_id: str, status: str) -> None:
                 row[2] = status
             writer.writerow(row)
 
-def approve_user(user_id: str) -> None:
-    """Добавить user_id в auto_approved_users.csv."""
-    approved = set()
-    if os.path.exists(AUTO_APPROVED_FILE):
-        with open(AUTO_APPROVED_FILE, 'r', encoding='utf-8') as f:
-            approved = set(line.strip() for line in f)
-    approved.add(str(user_id))
-    with open(AUTO_APPROVED_FILE, 'w', encoding='utf-8') as f:
-        for uid in sorted(approved):
+
+# ---------- Auto mode (enabled ids) ----------
+def enable_auto_mode(user_id: str | int) -> None:
+    """Включить авто-режим (добавить user_id в auto_enabled.csv)."""
+    ids = set()
+    if os.path.exists(AUTO_ENABLED_FILE):
+        with open(AUTO_ENABLED_FILE, 'r', encoding='utf-8') as f:
+            ids = set(line.strip() for line in f if line.strip())
+    ids.add(str(user_id))
+    with open(AUTO_ENABLED_FILE, 'w', encoding='utf-8') as f:
+        for uid in sorted(ids):
             f.write(f"{uid}\n")
 
-def deny_user(user_id: str) -> None:
-    """Удалить user_id из auto_approved_users.csv."""
-    if not os.path.exists(AUTO_APPROVED_FILE):
+
+def disable_auto_mode(user_id: str | int) -> None:
+    """Выключить авто-режим (удалить user_id из auto_enabled.csv)."""
+    if not os.path.exists(AUTO_ENABLED_FILE):
         return
-    with open(AUTO_APPROVED_FILE, 'r', encoding='utf-8') as f:
-        approved = set(line.strip() for line in f)
-    approved.discard(str(user_id))
-    with open(AUTO_APPROVED_FILE, 'w', encoding='utf-8') as f:
-        for uid in sorted(approved):
+    with open(AUTO_ENABLED_FILE, 'r', encoding='utf-8') as f:
+        ids = set(line.strip() for line in f if line.strip())
+    ids.discard(str(user_id))
+    with open(AUTO_ENABLED_FILE, 'w', encoding='utf-8') as f:
+        for uid in sorted(ids):
             f.write(f"{uid}\n")
 
-def is_auto_enabled(user_id: str) -> bool:
-    """Проверить, что user_id есть в auto_approved_users.csv."""
-    if not os.path.exists(AUTO_APPROVED_FILE):
+
+def is_auto_enabled(user_id: str | int) -> bool:
+    """Проверить, включён ли авто-режим для user_id."""
+    if not os.path.exists(AUTO_ENABLED_FILE):
         return False
-    with open(AUTO_APPROVED_FILE, 'r', encoding='utf-8') as f:
-        return str(user_id) in (line.strip() for line in f)
+    with open(AUTO_ENABLED_FILE, 'r', encoding='utf-8') as f:
+        return str(user_id) in (line.strip() for line in f if line.strip())
 
-# Синонимы
-enable_auto_mode  = approve_user
-disable_auto_mode = deny_user
 
-def update_work_time_entry(user_id: str, date_str: str, action: str, new_time_str: str) -> bool:
+# ---------- Admin edit helpers ----------
+def update_work_time_entry(user_id: str | int, date_str: str, action: str, new_time_str: str) -> bool:
     """
     Обновить в work_time.csv запись с user_id, action и датой.
     date_str: 'YYYY-MM-DD', new_time_str: 'HH:MM:SS'.
@@ -109,13 +114,11 @@ def update_work_time_entry(user_id: str, date_str: str, action: str, new_time_st
     updated = False
     temp_rows: list[list[str]] = []
 
-    # Парсим целевую дату
     try:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
         return False
 
-    # Читаем и модифицируем
     if os.path.exists(WORKTIME_FILE):
         with open(WORKTIME_FILE, 'r', newline='', encoding='utf-8') as f:
             for row in csv.reader(f):
@@ -129,18 +132,15 @@ def update_work_time_entry(user_id: str, date_str: str, action: str, new_time_st
                         pass
                 temp_rows.append(row)
 
-    # Перезаписать, если были изменения
     if updated:
         with open(WORKTIME_FILE, 'w', newline='', encoding='utf-8') as f:
             csv.writer(f).writerows(temp_rows)
 
     return updated
 
-def get_user_dates(user_id: str) -> list[str]:
-    """
-    Вернуть отсортированный список уникальных дат ('YYYY-MM-DD'),
-    по которым есть записи в work_time.csv для данного user_id.
-    """
+
+def get_user_dates(user_id: str | int) -> list[str]:
+    """Отсортированный список уникальных дат ('YYYY-MM-DD') для user_id из work_time.csv."""
     dates = set()
     if os.path.exists(WORKTIME_FILE):
         with open(WORKTIME_FILE, newline='', encoding='utf-8') as f:
@@ -152,4 +152,3 @@ def get_user_dates(user_id: str) -> list[str]:
                     except ValueError:
                         pass
     return sorted(dates)
-

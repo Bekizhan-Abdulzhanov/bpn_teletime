@@ -17,4 +17,15 @@ AUTO_APPROVED_USERS = {
     557174721: "BekizhanAbdulzhanov",
 }
 
+EMPLOYEE_USERS = {
+    459732737: "apkanat",
+    883069902: "AmanAkylbekov",
+    1033131013: "kristi_bpn",
+    5320022391: "KI",
+    5785249519: "Peri_Masali",
+    7321119959: "Vlad74Orlov",
+}
+
+ALLOWED_AUTO_USERS = {**AUTO_APPROVED_USERS, **EMPLOYEE_USERS}
+
 WORKTIME_FILE = "work_time.csv"
