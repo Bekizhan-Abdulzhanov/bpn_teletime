@@ -33,7 +33,6 @@ from reports import generate_excel_report_by_months
 
 TS_ZONE = ZoneInfo(TIMEZONE)
 
-# Доверенные (full + lunch_only)
 TRUSTED_USERS: dict[int, str] = ALLOWED_AUTO_USERS.copy()
 
 
@@ -118,15 +117,11 @@ def register_handlers(bot: TeleBot):
         if not is_admin(call.from_user.id):
             return bot.answer_callback_query(call.id, "⛔ Только для админов.")
         user_id = int(call.data.split("_")[1])
-
-        # 1) Ставим статус "rejected" в users.csv
         set_user_status(user_id, "rejected")
-        # 2) На всякий случай выключаем авто-режим (если был включён)
         try:
             disable_auto_mode(user_id)
         except Exception as e:
             print(f"[WARN] disable_auto_mode({user_id}) failed: {e}")
-
         bot.send_message(call.message.chat.id, f"🚫 Пользователь {user_id} был отклонён.")
         try:
             bot.send_message(user_id, "🚫 Ваша заявка на регистрацию была отклонена.")
@@ -146,7 +141,7 @@ def register_handlers(bot: TeleBot):
                 bot.send_document(message.chat.id, InputFile(buf, filename), caption="📄 Ваш отчёт на сегодня.")
             except Exception as e:
                 print(f"[ERROR] send_document failed (self): uid={user_id}, err={e}")
-                bot.reply_to(message, "⚠️ Не удалось отправить файл (проверьте, можно ли боту присылать документы).")
+                bot.reply_to(message, "⚠️ Не удалось отправить файл.")
         else:
             bot.reply_to(message, "⚠️ Отчёт не найден.")
 
@@ -176,8 +171,7 @@ def register_handlers(bot: TeleBot):
                 try:
                     bot.send_document(message.chat.id, InputFile(buf, filename), caption=f"📎 Отчёт {uname}")
                 except Exception as e:
-                    print(f"[ERROR] send_document failed (admin->user): uid={uid}, err={e}")
-                    bot.send_message(message.chat.id, f"⚠️ Не удалось отправить отчёт {uname} (нет прав на документы?).")
+                    print(f"[ERROR] send_document failed: uid={uid}, err={e}")
             else:
                 bot.send_message(message.chat.id, f"⚠️ Нет отчёта для {uname}.")
 
@@ -185,45 +179,10 @@ def register_handlers(bot: TeleBot):
     def whoami(message):
         bot.reply_to(message, f"🪪 Ваш user ID: `{message.from_user.id}`", parse_mode="Markdown")
 
-    # Диагностика прав и попадания в списки
-    @bot.message_handler(commands=["am_i_admin"])
-    def am_i_admin(message):
-        uid = message.from_user.id
-        is_admin_flag = uid in ADMIN_IDS
-        in_auto = uid in AUTO_APPROVED_USERS
-        in_emp = uid in EMPLOYEE_USERS
-        in_allowed = uid in ALLOWED_AUTO_USERS
-        bot.reply_to(
-            message,
-            (
-                "🔎 Диагностика прав:\n"
-                f"- ID: <code>{uid}</code>\n"
-                f"- ADMIN_IDS: {'✅' if is_admin_flag else '❌'}\n"
-                f"- AUTO_APPROVED_USERS: {'✅' if in_auto else '❌'}\n"
-                f"- EMPLOYEE_USERS: {'✅' if in_emp else '❌'}\n"
-                f"- ALLOWED_AUTO_USERS: {'✅' if in_allowed else '❌'}\n"
-            ),
-            parse_mode="HTML",
-        )
-
-    @bot.message_handler(commands=["pending"])
-    def show_pending_users(message):
-        if not is_admin(message.from_user.id):
-            return _deny_admin(bot, message, why="pending")
-        pending = get_pending_users()
-        if not pending:
-            return bot.send_message(message.chat.id, "📭 Нет заявок на одобрение.")
-        for uid, uname in pending.items():
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{uid}"))
-            bot.send_message(message.chat.id, f"👤 @{uname} (ID: {uid})", reply_markup=markup)
-
-    # Авто-режим: включение/выключение
     @bot.message_handler(commands=["авторежим_вкл"])
     def auto_mode_on(message):
         uid = message.from_user.id
         if uid not in TRUSTED_USERS:
-            print(f"[AUTO_DENY] uid={uid} not in TRUSTED_USERS")
             return bot.send_message(message.chat.id, "⛔ У вас нет доступа к авто-режиму.")
         enable_auto_mode(uid)
         if uid in EMPLOYEE_USERS:
@@ -241,7 +200,6 @@ def register_handlers(bot: TeleBot):
     def auto_mode_off(message):
         uid = message.from_user.id
         if uid not in TRUSTED_USERS:
-            print(f"[AUTO_DENY] uid={uid} not in TRUSTED_USERS")
             return bot.send_message(message.chat.id, "⛔ У вас нет доступа к авто-режиму.")
         disable_auto_mode(uid)
         bot.send_message(message.chat.id, "🛑 Автомаркер выключен.")
