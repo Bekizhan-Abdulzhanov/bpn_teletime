@@ -1,3 +1,4 @@
+# handlers.py
 import os
 import csv
 from datetime import datetime
@@ -24,7 +25,6 @@ from storage import (
     is_user_approved,
     get_all_users,
     set_user_status,
-    deny_user         as reject_user_by_id,
     get_pending_users,
     enable_auto_mode,
     disable_auto_mode,
@@ -33,6 +33,7 @@ from reports import generate_excel_report_by_months
 
 TS_ZONE = ZoneInfo(TIMEZONE)
 
+# Доверенные (full + lunch_only)
 TRUSTED_USERS: dict[int, str] = ALLOWED_AUTO_USERS.copy()
 
 
@@ -117,8 +118,15 @@ def register_handlers(bot: TeleBot):
         if not is_admin(call.from_user.id):
             return bot.answer_callback_query(call.id, "⛔ Только для админов.")
         user_id = int(call.data.split("_")[1])
-        reject_user_by_id(user_id)
+
+        # 1) Ставим статус "rejected" в users.csv
         set_user_status(user_id, "rejected")
+        # 2) На всякий случай выключаем авто-режим (если был включён)
+        try:
+            disable_auto_mode(user_id)
+        except Exception as e:
+            print(f"[WARN] disable_auto_mode({user_id}) failed: {e}")
+
         bot.send_message(call.message.chat.id, f"🚫 Пользователь {user_id} был отклонён.")
         try:
             bot.send_message(user_id, "🚫 Ваша заявка на регистрацию была отклонена.")
@@ -177,6 +185,7 @@ def register_handlers(bot: TeleBot):
     def whoami(message):
         bot.reply_to(message, f"🪪 Ваш user ID: `{message.from_user.id}`", parse_mode="Markdown")
 
+    # Диагностика прав и попадания в списки
     @bot.message_handler(commands=["am_i_admin"])
     def am_i_admin(message):
         uid = message.from_user.id
@@ -209,7 +218,7 @@ def register_handlers(bot: TeleBot):
             markup.add(InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_{uid}"))
             bot.send_message(message.chat.id, f"👤 @{uname} (ID: {uid})", reply_markup=markup)
 
-    
+    # Авто-режим: включение/выключение
     @bot.message_handler(commands=["авторежим_вкл"])
     def auto_mode_on(message):
         uid = message.from_user.id
@@ -218,9 +227,15 @@ def register_handlers(bot: TeleBot):
             return bot.send_message(message.chat.id, "⛔ У вас нет доступа к авто-режиму.")
         enable_auto_mode(uid)
         if uid in EMPLOYEE_USERS:
-            bot.send_message(message.chat.id, "✅ Авто-режим включён. Для вас автоматически отмечается только обед (12:30–13:00).")
+            bot.send_message(
+                message.chat.id,
+                "✅ Авто-режим включён. Для вас автоматически отмечается только обед (12:30–13:00)."
+            )
         else:
-            bot.send_message(message.chat.id, "✅ Авто-режим включён. (Сейчас автоматически отмечается обед 12:30–13:00.)")
+            bot.send_message(
+                message.chat.id,
+                "✅ Авто-режим включён. (Сейчас автоматически отмечается обед 12:30–13:00.)"
+            )
 
     @bot.message_handler(commands=["авторежим_выкл"])
     def auto_mode_off(message):
