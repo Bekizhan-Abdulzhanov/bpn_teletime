@@ -10,11 +10,12 @@ from waitress import serve
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerAlreadyRunningError
 
-from config import TOKEN, PORT
+from config import TOKEN, PORT, ADMIN_IDS, TIMEZONE
 from handlers import register_handlers
 from admin_handlers import register_admin_handlers
 from schedulers import setup_scheduler
 from notifier import setup_notifications
+from config import TOKEN, PORT, TIMEZONE, ADMIN_IDS, DATA_DIR
 
 # --- Инициализация ---
 TS_ZONE = ZoneInfo("Asia/Bishkek")
@@ -23,6 +24,13 @@ app = Flask(__name__)
 
 # Сброс webhook перед polling
 bot.remove_webhook()
+
+try:
+    me = bot.get_me()
+    print(f"[BOOT] Bot: @{me.username} (id={me.id})")
+except Exception as e:
+    print(f"[BOOT] bot.get_me() failed: {e}")
+print(f"[BOOT] ADMIN_IDS = {ADMIN_IDS}")
 
 # Регистрируем хендлеры
 register_handlers(bot)
@@ -39,8 +47,7 @@ try:
 except SchedulerAlreadyRunningError:
     print(f"[{datetime.now(TS_ZONE)}] [WARN] Планировщик уже запущен")
 
-print(f"[{datetime.now(TS_ZONE)}] [SCHEDULER] Запущен (Asia/Bishkek)")
-
+print(f"[{datetime.now(TS_ZONE)}] [SCHEDULER] Запущен ({TIMEZONE})")
 # --- Веб-сервер для health check ---
 @app.route("/")
 def index():
