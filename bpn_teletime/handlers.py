@@ -218,9 +218,9 @@ def register_handlers(bot: TeleBot):
             return bot.send_message(message.chat.id, "⛔ У вас нет доступа к авто-режиму.")
         enable_auto_mode(uid)
         if uid in EMPLOYEE_USERS:
-            bot.send_message(message.chat.id, "✅ Авто-режим включён. Для вас автоматически отмечается только обед (13:00–14:00).")
+            bot.send_message(message.chat.id, "✅ Авто-режим включён. Для вас автоматически отмечается только обед (12:30–13:00).")
         else:
-            bot.send_message(message.chat.id, "✅ Авто-режим включён. (Сейчас автоматически отмечается обед 13:00–14:00.)")
+            bot.send_message(message.chat.id, "✅ Авто-режим включён. (Сейчас автоматически отмечается обед 12:30–13:00.)")
 
     @bot.message_handler(commands=["авторежим_выкл"])
     def auto_mode_off(message):
