@@ -1,3 +1,4 @@
+# notifier.py
 from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
@@ -20,30 +21,42 @@ TS_ZONE = ZoneInfo(TIMEZONE)
 # Время начала рабочего дня (после него считаем опоздание)
 START_TIME = time(8, 30)
 
-# Напоминания по дням (как у тебя было)
+# Напоминания по дням
 REMINDERS = [
     ("Вы уже в пути на работу? Не забудьте отметить!", 8, 28),
     ("✅ Вы сегодня отлично поработали! Не забудьте отметить!", 16, 45),
 ]
 
-
-def _iter_all_targets() -> set[int]:
+def _iter_all_targets() -> dict[int, str]:
     """
-    Кого уведомлять и проверять:
-      - всех 'approved' из users.csv
-      - всех из AUTO_APPROVED_USERS
-      - всех из EMPLOYEE_USERS
+    Кого уведомлять/кому слать отчёты:
+      - все 'approved' из users.csv (id -> username)
+      - все из AUTO_APPROVED_USERS
+      - все из EMPLOYEE_USERS
+    Возвращаем единый словарь {user_id: name}
     """
-    approved = {int(uid) for uid in get_all_users().keys()}
-    auto_full = {int(uid) for uid in AUTO_APPROVED_USERS.keys()}
-    employees = {int(uid) for uid in EMPLOYEE_USERS.keys()}
-    return approved | auto_full | employees
+    combined: dict[int, str] = {}
 
+    # approved из users.csv
+    for uid_str, uname in get_all_users().items():
+        try:
+            combined[int(uid_str)] = uname or f"user_{uid_str}"
+        except ValueError:
+            # пропустим странные id
+            continue
+
+    # full-auto
+    for uid, name in AUTO_APPROVED_USERS.items():
+        combined[int(uid)] = name
+
+    # сотрудники (обед-авто)
+    for uid, name in EMPLOYEE_USERS.items():
+        combined[int(uid)] = name
+
+    return combined
 
 def _get_today_start_dt(user_id: int) -> datetime | None:
-    """
-    Вернуть samую раннюю отметку 'Пришел на работу' за сегодня (datetime) или None.
-    """
+    """Самая ранняя отметка 'Пришел на работу' за сегодня или None."""
     if not os.path.exists(WORKTIME_FILE):
         return None
 
@@ -67,21 +80,19 @@ def _get_today_start_dt(user_id: int) -> datetime | None:
                 first_dt = dt
     return first_dt
 
-
 def _check_lateness_and_notify(bot):
     """
-    Ежедневная проверка (09:00):
-      - нет прихода → напомнить
-      - приход позже START_TIME → сообщить количество минут опоздания
+    В 09:00:
+      - нет прихода → напоминание
+      - приход позже START_TIME → сообщение о количестве минут опоздания
     """
     now_local = datetime.now(TS_ZONE)
     print(f"[LATE_CHECK] {now_local:%Y-%m-%d %H:%M} старт проверки (START_TIME={START_TIME})")
 
-    for uid in _iter_all_targets():
+    for uid in _iter_all_targets().keys():
         try:
             start_dt = _get_today_start_dt(uid)
             if start_dt is None:
-                # не отметился приходом
                 bot.send_message(
                     uid,
                     "⚠️ Вы ещё не отметили *приход на работу*. Пожалуйста, отметьтесь командой /start или кнопкой.",
@@ -100,11 +111,10 @@ def _check_lateness_and_notify(bot):
         except Exception as e:
             print(f"[LATE_CHECK][ERROR] uid={uid}: {e}")
 
-
 def setup_notifications(scheduler, bot):
     # Регулярные напоминания по будням
     def notify_all(text):
-        for uid in _iter_all_targets():
+        for uid in _iter_all_targets().keys():
             try:
                 bot.send_message(uid, text)
             except Exception as e:
@@ -122,7 +132,7 @@ def setup_notifications(scheduler, bot):
             max_instances=1,
         )
 
-    # Проверка опозданий/неотмеченных — каждый будний день в 09:00
+    # Проверка опозданий/неотмеченных — будни в 09:00
     scheduler.add_job(
         _check_lateness_and_notify,
         CronTrigger(day_of_week="mon-fri", hour=9, minute=0, timezone=TS_ZONE),
@@ -134,9 +144,10 @@ def setup_notifications(scheduler, bot):
         max_instances=1,
     )
 
-    # Ежедневный отчёт пользователям в 17:40 (как было)
+    # Ежедневный отчёт в 17:40 — теперь всем (approved + AUTO_APPROVED_USERS + EMPLOYEE_USERS)
     def daily_report():
-        for uid, name in get_all_users().items():
+        targets = _iter_all_targets()
+        for uid, name in targets.items():
             try:
                 rep = generate_excel_report_by_months(uid, name)
                 if rep:

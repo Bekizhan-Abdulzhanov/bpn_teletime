@@ -1,12 +1,15 @@
+# admin_handlers.py
+import io
 import csv
 from datetime import datetime
+from zipfile import ZipFile, ZIP_DEFLATED
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
-from config import ADMIN_IDS
+from zoneinfo import ZoneInfo
+
+from config import ADMIN_IDS, TIMEZONE, AUTO_APPROVED_USERS, EMPLOYEE_USERS
 from storage import get_all_users, get_user_dates, update_work_time_entry
 from reports import generate_excel_report_by_months
-from zoneinfo import ZoneInfo
-from config import TIMEZONE
 
 TS_ZONE = ZoneInfo(TIMEZONE)
 
@@ -21,17 +24,150 @@ def _deny_admin(bot: TeleBot, message, why: str = ""):
     else:
         bot.answer_callback_query(message.id, "⛔ Только администраторам.")
 
+def _all_targets() -> dict[int, str]:
+    """
+    Объединённый список пользователей для отчётов:
+      - approved из users.csv
+      - AUTO_APPROVED_USERS
+      - EMPLOYEE_USERS
+    """
+    targets: dict[int, str] = {}
+
+    # approved из users.csv
+    for uid_str, uname in get_all_users().items():
+        try:
+            targets[int(uid_str)] = uname or f"user_{uid_str}"
+        except ValueError:
+            continue
+
+    # full-auto
+    for uid, name in AUTO_APPROVED_USERS.items():
+        targets[int(uid)] = name
+
+    # сотрудники (обед-авто)
+    for uid, name in EMPLOYEE_USERS.items():
+        targets[int(uid)] = name
+
+    return targets
+
+
 def register_admin_handlers(bot: TeleBot):
+    # --- главное меню ---
     @bot.message_handler(commands=['admin', 'menu', 'edit_time'])
     def admin_menu(message):
         if message.from_user.id not in ADMIN_IDS:
-            return _deny_admin(bot, message, why="admin_menu")
+            return _deny_admin(bot, message, "admin_menu")
+
         markup = InlineKeyboardMarkup(row_width=1)
         markup.add(
             InlineKeyboardButton("🕒 Изменить время сотрудника", callback_data="et_start"),
-            InlineKeyboardButton("📊 Отправить отчёты всем", callback_data="send_all_reports"),
+            InlineKeyboardButton("📊 Отправить отчёты всем (в чат)", callback_data="send_all_reports_chat"),
+            InlineKeyboardButton("📦 Все отчёты ZIP (мне)", callback_data="send_all_reports_zip"),
         )
         bot.send_message(message.chat.id, "🔧 Меню администратора:", reply_markup=markup)
+
+    # --- сбор всех отчётов и отправка в текущий чат (по одному файлу) ---
+    @bot.callback_query_handler(func=lambda c: c.data == 'send_all_reports_chat')
+    def handle_send_reports_chat(call):
+        if call.from_user.id not in ADMIN_IDS:
+            return _deny_admin(bot, call, "send_all_reports_chat")
+        bot.answer_callback_query(call.id)
+
+        targets = _all_targets()
+        if not targets:
+            return bot.send_message(call.message.chat.id, "👥 Нет пользователей для отчётов.")
+
+        sent = 0
+        for uid, uname in targets.items():
+            buf = generate_excel_report_by_months(uid, uname)
+            if buf:
+                filename = f"Report_{uname}_{datetime.now(TS_ZONE):%Y-%m-%d}.xlsx"
+                try:
+                    bot.send_document(call.message.chat.id, InputFile(buf, filename),
+                                      caption=f"Отчёт {uname}")
+                    sent += 1
+                except Exception as e:
+                    print(f"[ERROR] send_document chat failed: uid={uid}, name={uname}, err={e}")
+            else:
+                bot.send_message(call.message.chat.id, f"⚠️ Нет данных для {uname}")
+
+        bot.send_message(call.message.chat.id, f"✅ Отправлено отчётов: {sent}/{len(targets)}")
+
+    # --- сбор всех отчётов и отправка одним ZIP админу (инициатору) ---
+    @bot.callback_query_handler(func=lambda c: c.data == 'send_all_reports_zip')
+    def handle_send_reports_zip(call):
+        if call.from_user.id not in ADMIN_IDS:
+            return _deny_admin(bot, call, "send_all_reports_zip")
+        bot.answer_callback_query(call.id)
+
+        _send_zip_to_user(bot, call.from_user.id)
+
+    # Дублируем функционал ZIP ещё и отдельной командой — удобно
+    @bot.message_handler(commands=['all_reports_zip'])
+    def send_all_reports_zip_cmd(message):
+        if message.from_user.id not in ADMIN_IDS:
+            return _deny_admin(bot, message, "all_reports_zip")
+        _send_zip_to_user(bot, message.from_user.id)
+
+    # Отправить все отчёты как отдельные файлы админу (инициатору)
+    @bot.message_handler(commands=['all_reports_to_me'])
+    def send_all_reports_to_me(message):
+        if message.from_user.id not in ADMIN_IDS:
+            return _deny_admin(bot, message, "all_reports_to_me")
+
+        targets = _all_targets()
+        if not targets:
+            return bot.send_message(message.chat.id, "👥 Нет пользователей для отчётов.")
+
+        sent = 0
+        for uid, uname in targets.items():
+            buf = generate_excel_report_by_months(uid, uname)
+            if buf:
+                filename = f"Report_{uname}_{datetime.now(TS_ZONE):%Y-%m-%d}.xlsx"
+                try:
+                    bot.send_document(message.chat.id, InputFile(buf, filename), caption=f"Отчёт {uname}")
+                    sent += 1
+                except Exception as e:
+                    print(f"[ERROR] send_document to_me failed: uid={uid}, name={uname}, err={e}")
+            else:
+                bot.send_message(message.chat.id, f"⚠️ Нет данных для {uname}")
+
+        bot.send_message(message.chat.id, f"✅ Отправлено отчётов: {sent}/{len(targets)}")
+
+    # --- ZIP-сборка (вспомогательная) ---
+    def _send_zip_to_user(bot: TeleBot, target_admin_id: int):
+        targets = _all_targets()
+        if not targets:
+            return bot.send_message(target_admin_id, "👥 Нет пользователей для отчётов.")
+
+        # Собираем ZIP в памяти
+        zip_mem = io.BytesIO()
+        with ZipFile(zip_mem, mode="w", compression=ZIP_DEFLATED) as zf:
+            added = 0
+            for uid, uname in targets.items():
+                buf = generate_excel_report_by_months(uid, uname)
+                if not buf:
+                    continue
+                # имя файла внутри архива
+                inner_name = f"Report_{uname}_{datetime.now(TS_ZONE):%Y-%m-%d}.xlsx"
+                try:
+                    zf.writestr(inner_name, buf.getvalue())
+                    added += 1
+                except Exception as e:
+                    print(f"[ERROR] zip add failed: uid={uid}, name={uname}, err={e}")
+
+        if zip_mem.tell() == 0:
+            return bot.send_message(target_admin_id, "⚠️ Нет отчётов для архива.")
+
+        zip_mem.seek(0)
+        zip_name = f"Reports_{datetime.now(TS_ZONE):%Y-%m-%d}.zip"
+        try:
+            bot.send_document(target_admin_id, InputFile(zip_mem, zip_name), caption="📦 Все отчёты (ZIP)")
+        except Exception as e:
+            print(f"[ERROR] send ZIP failed: err={e}")
+            bot.send_message(target_admin_id, "⚠️ Не удалось отправить ZIP.")
+
+    # ----------------- Редактирование отметок (как было) -----------------
 
     @bot.callback_query_handler(func=lambda c: c.data == 'et_start')
     def cb_start_edit(call):
@@ -39,9 +175,9 @@ def register_admin_handlers(bot: TeleBot):
             return _deny_admin(bot, call, why="cb_start_edit")
         bot.answer_callback_query(call.id)
 
-        users = get_all_users()
+        users = _all_targets()
         if not users:
-            return bot.send_message(call.message.chat.id, "👥 Нет одобренных пользователей.")
+            return bot.send_message(call.message.chat.id, "👥 Нет доступных пользователей.")
         CTX[call.message.chat.id] = {}
         markup = InlineKeyboardMarkup(row_width=1)
         for uid, uname in users.items():
@@ -55,7 +191,7 @@ def register_admin_handlers(bot: TeleBot):
         bot.answer_callback_query(call.id)
 
         chat_id = call.message.chat.id
-        uid = call.data.split(':',1)[1]
+        uid = call.data.split(':', 1)[1]
         CTX[chat_id] = CTX.get(chat_id, {})
         CTX[chat_id]['user_id'] = uid
 
@@ -74,7 +210,7 @@ def register_admin_handlers(bot: TeleBot):
         bot.answer_callback_query(call.id)
 
         chat_id = call.message.chat.id
-        date_str = call.data.split(':',1)[1]
+        date_str = call.data.split(':', 1)[1]
         CTX[chat_id] = CTX.get(chat_id, {})
         CTX[chat_id]['date'] = date_str
 
@@ -92,7 +228,7 @@ def register_admin_handlers(bot: TeleBot):
         bot.answer_callback_query(call.id)
 
         chat_id = call.message.chat.id
-        code = call.data.split(':',1)[1]
+        code = call.data.split(':', 1)[1]
         CTX[chat_id] = CTX.get(chat_id, {})
         CTX[chat_id]['action'] = code.replace("_", " ")
         bot.edit_message_text(
@@ -132,25 +268,3 @@ def register_admin_handlers(bot: TeleBot):
         ctx['done'] = True
         CTX.pop(chat_id, None)
 
-    @bot.callback_query_handler(func=lambda c: c.data == 'send_all_reports')
-    def handle_send_reports(call):
-        if call.from_user.id not in ADMIN_IDS:
-            return _deny_admin(bot, call, why="handle_send_reports")
-        bot.answer_callback_query(call.id)
-
-        users = get_all_users()
-        if not users:
-            return bot.send_message(call.message.chat.id, "👥 Нет одобренных пользователей.")
-
-        for uid, uname in users.items():
-            buf = generate_excel_report_by_months(uid, uname)
-            if buf:
-                filename = f"Report_{uname}_{datetime.now(TS_ZONE):%Y-%m-%d}.xlsx"
-                try:
-                    bot.send_document(call.message.chat.id, InputFile(buf, filename),
-                                      caption=f"Отчёт {uname}")
-                except Exception as e:
-                    print(f"[ERROR] send_document failed for {uid} ({uname}): {e}")
-            else:
-                bot.send_message(call.message.chat.id, f"⚠️ Нет данных для {uname}")
-        bot.answer_callback_query(call.id, "✅ Отчёты отправлены всем.")
